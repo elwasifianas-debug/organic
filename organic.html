@@ -100,6 +100,7 @@ input { cursor: text; }
 #stage {
   position: relative; overflow: hidden; min-height: 0;
   border-right: 1px solid rgba(148,163,184,.12);
+  isolation: isolate;
 }
 #stageBg {
   position: absolute; inset: 0; pointer-events: none;
@@ -116,8 +117,8 @@ input { cursor: text; }
   background-size: 40px 40px;
   mask-image: radial-gradient(circle at center, black 0%, rgba(0,0,0,.6) 50%, transparent 100%);
 }
-#edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-#cardLayer { position: absolute; inset: 0; }
+#edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 1; }
+#cardLayer { position: absolute; inset: 0; z-index: 3; overflow: visible; }
 
 /* ─── Search Results Panel ──────────────────────────────────────────── */
 #searchPanel {
@@ -154,6 +155,7 @@ input { cursor: text; }
   border: 1px solid rgba(148,163,184,.18);
   box-shadow: var(--shadow);
   overflow: hidden;
+  z-index: 3;
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   backdrop-filter: blur(14px);
   will-change: transform;
@@ -167,7 +169,7 @@ input { cursor: text; }
 .node.preview  { border-color: rgba(192,132,252,.5) !important; }
 
 /* Center node overrides */
-.node.node-center { z-index: 10; width: 320px; height: 248px; }
+.node.node-center { z-index: 7; width: 320px; height: 248px; }
 .node.node-center .stripe { height: 5px; }
 
 /* Neighbour node */
@@ -211,11 +213,13 @@ input { cursor: text; }
 /* Edge connector labels */
 .connector {
   position: absolute; padding: 6px 9px; border-radius: 10px;
-  font-size: 10px; font-weight: 700; line-height: 1.3;
-  max-width: 160px; transform: translate(-50%,-50%);
-  text-align: center; pointer-events: none; color: #e2eaf8;
-  background: rgba(8,14,28,.96); border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+  font-size: 12px; font-weight: 750; line-height: 1.35;
+  max-width: 220px; transform: translate(-50%,-50%);
+  text-align: center; pointer-events: none; color: #edf3ff;
+  background: rgba(8,14,28,.95); border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 8px 22px rgba(0,0,0,.38);
+  backdrop-filter: blur(6px);
+  z-index: 6;
 }
 
 /* ─── Detail Panel ──────────────────────────────────────────────────── */
@@ -321,6 +325,22 @@ input { cursor: text; }
   border-radius: 18px; box-shadow: var(--shadow); padding: 18px;
 }
 .qprompt { font-size: 15px; font-weight: 700; line-height: 1.4; margin-bottom: 14px; }
+.qprogress {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.qstep {
+  padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+  background: rgba(125,211,252,.12); border: 1px solid rgba(125,211,252,.2);
+  color: #c8ecff; letter-spacing: .3px;
+}
+.qgoal { font-size: 11px; color: var(--muted); }
+.qpath {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 11px; color: #d9e6f7;
+}
+.qpath span { padding: 3px 7px; border-radius: 999px; background: rgba(8,14,28,.65); border: 1px solid rgba(148,163,184,.12); }
+.qpath .current { border-color: rgba(251,191,36,.55); color: #fff4c2; }
 .qflow {
   display: flex; align-items: center; justify-content: center;
   gap: 14px; flex-wrap: wrap; margin: 6px 0 16px;
@@ -428,7 +448,7 @@ input { cursor: text; }
     <div id="quizHeader">
       <div>
         <h2 id="quizTitle">Reaction Quiz</h2>
-        <div class="sub">Concrete single-step reactions only — generic nodes excluded.</div>
+        <div class="sub" id="quizSub">Single-step reactions dominate — occasional multi-step paths included.</div>
       </div>
       <div class="quizStats" aria-live="polite">
         <div class="score" id="qc">✔ Correct: 0</div>
@@ -638,7 +658,9 @@ const state = {
     wrong:    0,
     total:    0,
     current:  null,
-    answered: false
+    answered: false,
+    chain:    null,
+    stepIndex: 0
   }
 };
 
@@ -655,6 +677,7 @@ const tip         = document.getElementById('tip');
 const searchEl    = document.getElementById('search');
 const searchPanel = document.getElementById('searchPanel');
 const resultsBox  = document.getElementById('results');
+const quizSub     = document.getElementById('quizSub');
 
 /* ═══════════════════════════════════════════════════════════════════════
    LOOKUP MAPS & GRAPH
@@ -727,6 +750,10 @@ const colorMap = {
 function esc(str) {
   return String(str).replace(/[&<>"']/g, s =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[s]));
+}
+
+function clamp(val, min, max) {
+  return Math.min(max, Math.max(min, val));
 }
 
 function normChem(text) {
@@ -899,25 +926,63 @@ function selectSearchResult(id) {
 /* ═══════════════════════════════════════════════════════════════════════
    STAGE LAYOUT  –  all nodes use centre-point left/top + CSS translate(-50%,-50%)
    ═══════════════════════════════════════════════════════════════════════ */
-function layoutSide(items, side, rect) {
-  const cardW  = 250, cardH = 132, gapX = 18, gapY = 14;
-  const avail  = Math.max(270, (rect.width - 340) / 2 - 30);
-  const maxRows = Math.max(1, Math.floor((rect.height - 130) / (cardH + gapY)));
-  const cols   = Math.max(1, Math.min(3, Math.ceil(items.length / maxRows)));
-  const colW   = Math.max(210, Math.min(cardW, (avail - (cols - 1) * gapX) / cols));
-  const rows   = Math.ceil(items.length / cols);
+function layoutSide(items, side, rect, centerRect) {
+  if (!items.length) return [];
+  const gapX = 16, gapY = 12;
+  const baseW = 250, baseH = 132;
+  const padX = clamp(rect.width * 0.035, 16, 26);
+  const padY = clamp(rect.height * 0.04, 18, 28);
+  const sideGap = clamp(rect.width * 0.04, 16, 28);
+  let innerEdge = side === 'left'
+    ? centerRect.x - sideGap
+    : centerRect.x + centerRect.w + sideGap;
+  let rawAvailW = side === 'left'
+    ? innerEdge - padX
+    : rect.width - innerEdge - padX;
+  let availW = Math.max(160, rawAvailW);
+  const availH = Math.max(180, rect.height - padY * 2);
+  let minW = Math.max(150, Math.min(190, availW));
+  const minH = Math.max(96, Math.min(110, availH / 2));
+  innerEdge = side === 'left'
+    ? Math.max(innerEdge, padX + minW)
+    : Math.min(innerEdge, rect.width - padX - minW);
+  rawAvailW = side === 'left'
+    ? innerEdge - padX
+    : rect.width - innerEdge - padX;
+  availW = Math.max(160, rawAvailW);
+  minW = Math.max(150, Math.min(190, availW));
+  const maxCols = Math.min(4, items.length);
+  let best = null;
+
+  for (let cols = 1; cols <= maxCols; cols++) {
+    const rows = Math.ceil(items.length / cols);
+    const w = (availW - (cols - 1) * gapX) / cols;
+    const h = (availH - (rows - 1) * gapY) / rows;
+    const cardW = clamp(Math.min(baseW, w), minW, baseW);
+    const cardH = clamp(Math.min(baseH, h), minH, baseH);
+    const penalty = (w < minW || h < minH) ? 0.35 : 0;
+    const score = (cardW / baseW) + (cardH / baseH) - penalty;
+    if (!best || score > best.score) best = { cols, rows, cardW, cardH, score };
+  }
+
+  const cols = best ? best.cols : 1;
+  const rows = best ? best.rows : items.length;
+  const cardW = best ? best.cardW : minW;
+  const cardH = best ? best.cardH : minH;
   const blockH = rows * cardH + (rows - 1) * gapY;
-  const startY = Math.max(24, (rect.height - blockH) / 2);
+  const startY = Math.max(padY, (rect.height - blockH) / 2);
 
   return items.map((item, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = side === 'left'
-      ? 24 + col * (colW + gapX) + colW / 2
-      : rect.width - 24 - (cols - 1 - col) * (colW + gapX) - colW / 2;
+    const offset = col * (cardW + gapX);
+    const rawX = side === 'left'
+      ? innerEdge - offset - cardW / 2
+      : innerEdge + offset + cardW / 2;
+    const x = clamp(rawX, padX + cardW / 2, rect.width - padX - cardW / 2);
     const y = startY + row * (cardH + gapY) + cardH / 2;
-    return { ...item, cx: x, cy: y, w: colW, h: cardH,
-             lane: (i - (items.length - 1) / 2) * 14 };
+    const lane = (row - (rows - 1) / 2) * 18 + (side === 'left' ? -col : col) * 6;
+    return { ...item, cx: x, cy: y, w: cardW, h: cardH, lane, row, col };
   });
 }
 
@@ -977,8 +1042,10 @@ function renderStage() {
   const rect  = stage.getBoundingClientRect();
   const cx    = rect.width  / 2;
   const cy    = rect.height / 2;
+  const centerW = clamp(rect.width * 0.32, 220, 340);
+  const centerH = clamp(rect.height * 0.32, 200, 260);
   // centre card rect (top-left corner) for edge calculations
-  const cRect = { x: cx - 160, y: cy - 120, w: 320, h: 248 };
+  const cRect = { x: cx - centerW / 2, y: cy - centerH / 2, w: centerW, h: centerH };
 
   /* ── Collect visible neighbour sets ── */
   let leftItems  = state.mode !== 'outgoing'
@@ -997,8 +1064,8 @@ function renderStage() {
   rightItems = dedup(rightItems);
 
   /* ── Compute layouts ── */
-  const leftLayout  = layoutSide(leftItems,  'left',  rect);
-  const rightLayout = layoutSide(rightItems, 'right', rect);
+  const leftLayout  = layoutSide(leftItems,  'left',  rect, cRect);
+  const rightLayout = layoutSide(rightItems, 'right', rect, cRect);
   const wantedIds   = new Set([`node-${focus.id}`]);
   [...leftLayout, ...rightLayout].forEach(it => wantedIds.add(`node-${it.node.id}`));
 
@@ -1015,7 +1082,7 @@ function renderStage() {
   }
   cCard.className = 'node node-center selected';
   cCard.innerHTML = centerHTML(focus);
-  cCard.style.cssText = `left:${cx}px;top:${cy}px;width:320px;height:248px`;
+  cCard.style.cssText = `left:${cx}px;top:${cy}px;width:${centerW}px;height:${centerH}px`;
 
   /* ── Render / update neighbour cards ── */
   const renderNeighbours = (layout) => {
@@ -1047,7 +1114,7 @@ function renderStage() {
     path.setAttribute('d', `M ${start.x} ${start.y} Q ${mx} ${my} ${end.x} ${end.y}`);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', stroke);
-    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-width', '2.4');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('opacity', '.75');
     path.setAttribute('marker-end', `url(#${tone.replace('r-', 'arrow-')})`);
@@ -1063,12 +1130,12 @@ function renderStage() {
   leftLayout.forEach(it => {
     // left card: right edge → centre card: left edge
     const start = { x: it.cx + it.w / 2, y: it.cy };
-    const end   = { x: cRect.x,           y: cRect.y + cRect.h / 2 };
+    const end   = { x: cRect.x,           y: clamp(it.cy, cRect.y + 26, cRect.y + cRect.h - 26) };
     drawEdge(start, end, reactionTone(it.edge.label), colorMap[it.node.cls] || '#7dd3fc', it.lane, it.edge.label);
   });
   rightLayout.forEach(it => {
     // centre card: right edge → right card: left edge
-    const start = { x: cRect.x + cRect.w, y: cRect.y + cRect.h / 2 };
+    const start = { x: cRect.x + cRect.w, y: clamp(it.cy, cRect.y + 26, cRect.y + cRect.h - 26) };
     const end   = { x: it.cx - it.w / 2,  y: it.cy };
     drawEdge(start, end, reactionTone(it.edge.label), colorMap[it.node.cls] || '#7dd3fc', it.lane, it.edge.label);
   });
@@ -1091,11 +1158,11 @@ function createCard(node) {
 function clearEdges() {
   edgesSvg.innerHTML = `
     <defs>
-      <marker id="arrow-red"     markerWidth="9" markerHeight="7" refX="7" refY="3.5" orient="auto"><polygon points="0 0 9 3.5 0 7" fill="#e94560"/></marker>
-      <marker id="arrow-green"   markerWidth="9" markerHeight="7" refX="7" refY="3.5" orient="auto"><polygon points="0 0 9 3.5 0 7" fill="#4ade80"/></marker>
-      <marker id="arrow-yellow"  markerWidth="9" markerHeight="7" refX="7" refY="3.5" orient="auto"><polygon points="0 0 9 3.5 0 7" fill="#fbbf24"/></marker>
-      <marker id="arrow-purple"  markerWidth="9" markerHeight="7" refX="7" refY="3.5" orient="auto"><polygon points="0 0 9 3.5 0 7" fill="#c084fc"/></marker>
-      <marker id="arrow-default" markerWidth="9" markerHeight="7" refX="7" refY="3.5" orient="auto"><polygon points="0 0 9 3.5 0 7" fill="#7dd3fc"/></marker>
+      <marker id="arrow-red"     markerWidth="12" markerHeight="9" refX="9" refY="4.5" orient="auto"><polygon points="0 0 12 4.5 0 9" fill="#e94560"/></marker>
+      <marker id="arrow-green"   markerWidth="12" markerHeight="9" refX="9" refY="4.5" orient="auto"><polygon points="0 0 12 4.5 0 9" fill="#4ade80"/></marker>
+      <marker id="arrow-yellow"  markerWidth="12" markerHeight="9" refX="9" refY="4.5" orient="auto"><polygon points="0 0 12 4.5 0 9" fill="#fbbf24"/></marker>
+      <marker id="arrow-purple"  markerWidth="12" markerHeight="9" refX="9" refY="4.5" orient="auto"><polygon points="0 0 12 4.5 0 9" fill="#c084fc"/></marker>
+      <marker id="arrow-default" markerWidth="12" markerHeight="9" refX="9" refY="4.5" orient="auto"><polygon points="0 0 12 4.5 0 9" fill="#7dd3fc"/></marker>
     </defs>`;
 }
 
@@ -1247,21 +1314,113 @@ function eligibleEdges() {
   return DATA.edges.filter(e => safeNodeIds.has(e.f) && safeNodeIds.has(e.t) && e.f !== e.t);
 }
 const rand = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = arr => arr.slice().sort(() => Math.random() - 0.5);
+
+let quizGraph = null;
+function getQuizGraph() {
+  if (quizGraph) return quizGraph;
+  const edges = eligibleEdges();
+  const adj = new Map();
+  for (const e of edges) {
+    if (!adj.has(e.f)) adj.set(e.f, []);
+    adj.get(e.f).push(e);
+  }
+  quizGraph = { edges, adj };
+  return quizGraph;
+}
+
+function buildSingleStepChain() {
+  const pool = eligibleEdges();
+  if (!pool.length) return null;
+  const edge = rand(pool);
+  return { nodes: [edge.f, edge.t], edges: [edge], steps: 1, mode: 'single' };
+}
+
+function walkChain(start, steps, adj) {
+  const nodes = [start];
+  const edges = [];
+  const visited = new Set([start]);
+  let current = start;
+  for (let i = 0; i < steps; i++) {
+    const options = (adj.get(current) || []).filter(e => safeNodeIds.has(e.t) && !visited.has(e.t));
+    if (!options.length) return null;
+    const edge = rand(options);
+    edges.push(edge);
+    current = edge.t;
+    nodes.push(current);
+    visited.add(current);
+  }
+  return { nodes, edges, steps: edges.length, mode: 'multi' };
+}
+
+function buildMultiStepChain() {
+  const { adj } = getQuizGraph();
+  const starters = [...adj.keys()].filter(id => (adj.get(id) || []).length);
+  if (!starters.length) return null;
+  const stepOptions = [2, 3];
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const start = rand(starters);
+    const steps = rand(stepOptions);
+    const chain = walkChain(start, steps, adj);
+    if (chain && chain.steps > 1) return chain;
+  }
+  return null;
+}
+
+function buildStepOptions(srcId, correct) {
+  const { adj, edges } = getQuizGraph();
+  const opts = new Set([correct]);
+  const local = (adj.get(srcId) || []).map(e => cleanLabel(e.label)).filter(l => l && l !== correct);
+  let guard = 0;
+  while (opts.size < 4 && local.length && guard++ < 50) opts.add(rand(local));
+  if (opts.size < 4) {
+    const global = edges.map(e => cleanLabel(e.label)).filter(l => l && l !== correct);
+    guard = 0;
+    while (opts.size < 4 && global.length && guard++ < 80) opts.add(rand(global));
+  }
+  return shuffle([...opts]);
+}
+
+function buildStep(chain, stepIndex) {
+  const edge = chain.edges[stepIndex];
+  const src = nodeMap.get(edge.f);
+  const tgt = nodeMap.get(edge.t);
+  const correct = cleanLabel(edge.label);
+  const options = buildStepOptions(edge.f, correct);
+  return {
+    chain,
+    stepIndex,
+    stepCount: chain.steps,
+    edge,
+    src,
+    tgt,
+    correct,
+    options,
+    mode: chain.mode
+  };
+}
 
 function nextQuiz() {
-  const pool = eligibleEdges();
-  if (!pool.length) return;
+  if (state.quiz.chain && state.quiz.stepIndex < state.quiz.chain.steps - 1) {
+    if (!state.quiz.answered) {
+      document.getElementById('quizFb').textContent = 'Choose an answer to continue.';
+      return;
+    }
+    state.quiz.stepIndex++;
+    state.quiz.answered = false;
+    state.quiz.current = buildStep(state.quiz.chain, state.quiz.stepIndex);
+    renderQuiz();
+    return;
+  }
+
+  const useMulti = Math.random() < 0.25;
+  let chain = useMulti ? buildMultiStepChain() : null;
+  if (!chain) chain = buildSingleStepChain();
+  if (!chain) return;
+  state.quiz.chain = chain;
+  state.quiz.stepIndex = 0;
   state.quiz.answered = false;
-  const edge = rand(pool);
-  const src  = nodeMap.get(edge.f);
-  const tgt  = nodeMap.get(edge.t);
-  const correct = cleanLabel(edge.label);
-  const opts  = new Set([correct]);
-  const other = pool.filter(e => cleanLabel(e.label) !== correct).map(e => cleanLabel(e.label));
-  let guard = 0;
-  while (opts.size < 4 && other.length && guard++ < 60) opts.add(rand(other));
-  const options = [...opts].sort(() => Math.random() - 0.5);
-  state.quiz.current = { edge, src, tgt, correct, options };
+  state.quiz.current = buildStep(chain, 0);
   renderQuiz();
 }
 
@@ -1276,8 +1435,32 @@ function renderQuiz() {
   document.getElementById('qw').textContent = `✘ Wrong: ${state.quiz.wrong}`;
   document.getElementById('qt').textContent = `Total: ${state.quiz.total}`;
   document.getElementById('quizFb').textContent = '';
+  const multi = q.stepCount > 1;
+  const goalNode = q.chain ? nodeMap.get(q.chain.nodes[q.chain.nodes.length - 1]) : null;
+  const pathNodes = q.chain ? q.chain.nodes.map(id => nodeMap.get(id)).filter(Boolean) : [];
+  const pathHtml = pathNodes.map((node, i) => `
+    <span class="${i === q.stepIndex ? 'current' : ''}">${fmtFormula(node.formula)}</span>
+  `).join('<span>→</span>');
+  const stepText = multi
+    ? `Step ${q.stepIndex + 1} of ${q.stepCount}`
+    : 'Single-step';
+  const prompt = multi
+    ? (q.stepIndex === 0
+        ? `What is the first step from <strong>${esc(q.src.iupac)}</strong>?`
+        : `What is step ${q.stepIndex + 1} from <strong>${esc(q.src.iupac)}</strong>?`)
+    : 'Which reaction directly converts the <strong>source</strong> compound into the <strong>target</strong>?';
+  if (quizSub) {
+    quizSub.textContent = multi
+      ? 'Multi-step path challenge — advance through each reaction step.'
+      : 'Single-step reactions dominate — occasional multi-step paths included.';
+  }
   document.getElementById('quizArea').innerHTML = `
-    <div class="qprompt">Which reaction directly converts the <strong>source</strong> compound into the <strong>target</strong>?</div>
+    <div class="qprogress">
+      <div class="qstep">${stepText}</div>
+      ${goalNode ? `<div class="qgoal">Goal: <strong>${esc(goalNode.iupac)}</strong></div>` : ''}
+    </div>
+    ${multi ? `<div class="qpath">${pathHtml}</div>` : ''}
+    <div class="qprompt">${prompt}</div>
     <div class="qflow">
       <div class="qmol">
         <div class="f">${fmtFormula(q.src.formula)}</div>
@@ -1298,6 +1481,8 @@ function renderQuiz() {
   document.querySelectorAll('.option').forEach(btn => {
     btn.addEventListener('click', () => handleAnswer(btn.dataset.label));
   });
+  document.getElementById('nextQuiz').textContent =
+    (multi && q.stepIndex < q.stepCount - 1) ? 'Next Step' : 'Next Question';
 }
 
 function handleAnswer(label) {
@@ -1323,6 +1508,8 @@ function handleAnswer(label) {
   document.getElementById('qc').textContent = `✔ Correct: ${state.quiz.correct}`;
   document.getElementById('qw').textContent = `✘ Wrong: ${state.quiz.wrong}`;
   document.getElementById('qt').textContent = `Total: ${state.quiz.total}`;
+  document.getElementById('nextQuiz').textContent =
+    (state.quiz.chain && state.quiz.stepIndex < state.quiz.chain.steps - 1) ? 'Next Step' : 'Next Question';
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
