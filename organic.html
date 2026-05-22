@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organic Chemistry Reaction Map — Dr. Saif Soliman G12 S26</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;overflow:hidden;height:100vh;user-select:none}
+
+/* ── TOOLBAR ── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:linear-gradient(90deg,#0f1b35,#1a1040);
+  border-bottom:2px solid #e94560;
+  display:flex;align-items:center;padding:0 16px;gap:10px;z-index:1000;
+  box-shadow:0 3px 20px rgba(0,0,0,.6)
+}
+#toolbar h1{color:#e94560;font-size:15px;font-weight:800;white-space:nowrap;letter-spacing:.5px;margin-right:6px}
+#toolbar .subtitle{color:#94a3b8;font-size:11px;white-space:nowrap;margin-right:10px}
+.btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;transition:all .2s;letter-spacing:.3px}
+.btn-map{background:#0f3460;color:#7dd3fc;border:1.5px solid #7dd3fc}
+.btn-map:hover,.btn-map.active{background:#7dd3fc;color:#0d1117}
+.btn-test{background:#1a0d3c;color:#c084fc;border:1.5px solid #c084fc}
+.btn-test:hover,.btn-test.active{background:#c084fc;color:#0d1117}
+.btn-reset{background:#1a2e1a;color:#4ade80;border:1.5px solid #4ade80}
+.btn-reset:hover{background:#4ade80;color:#0d1117}
+.zoom-group{display:flex;gap:5px;align-items:center;margin-left:auto}
+.zb{width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:#0f3460;color:#e2e8f0;border:1.5px solid #334155;border-radius:7px;
+  cursor:pointer;font-size:17px;font-weight:bold;transition:all .2s}
+.zb:hover{background:#e94560;border-color:#e94560}
+#zlvl{color:#94a3b8;font-size:11px;min-width:42px;text-align:center;font-weight:600}
+
+/* ── LEGEND ── */
+#legend{
+  position:fixed;bottom:18px;left:18px;
+  background:rgba(15,27,53,.92);border:1px solid #334155;border-radius:10px;
+  padding:10px 14px;z-index:500;display:flex;flex-direction:column;gap:5px
+}
+#legend h4{color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.leg{display:flex;align-items:center;gap:7px;font-size:10.5px;color:#cbd5e1}
+.legd{width:13px;height:13px;border-radius:4px;flex-shrink:0}
+
+/* ── VIEWPORT ── */
+#viewport{position:fixed;top:56px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#viewport.grabbing{cursor:grabbing}
+
+/* ── CANVAS ── */
+#canvas{
+  position:absolute;top:0;left:0;width:6200px;height:4600px;
+  transform-origin:0 0;
+  background:radial-gradient(ellipse at 30% 30%,#0f1b35 0%,#0d1117 70%)
+}
+
+/* grid dots */
+#canvas::before{
+  content:'';position:absolute;inset:0;
+  background-image:radial-gradient(circle,#1e293b 1px,transparent 1px);
+  background-size:50px 50px;pointer-events:none
+}
+
+#arrows-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+/* ── NODES ── */
+.node{
+  position:absolute;border-radius:12px;padding:9px 13px;
+  text-align:center;cursor:pointer;min-width:130px;max-width:195px;
+  border:2px solid rgba(255,255,255,.18);
+  transition:border-color .2s,box-shadow .2s,transform .15s;
+  box-shadow:0 4px 18px rgba(0,0,0,.45);
+  pointer-events:all
+}
+.node:hover{border-color:#e94560 !important;box-shadow:0 0 28px rgba(233,69,96,.55) !important;transform:scale(1.04);z-index:20}
+.node.selected{border-color:#fbbf24 !important;box-shadow:0 0 30px rgba(251,191,36,.7) !important}
+.node-formula{font-family:'Courier New',monospace;font-size:13px;font-weight:900;color:#0d1117;margin-bottom:3px;line-height:1.2}
+.node-name{font-size:10.5px;color:rgba(13,17,23,.75);font-weight:700;line-height:1.3}
+.node-extra{font-size:9px;color:rgba(13,17,23,.55);margin-top:2px;font-style:italic;line-height:1.2}
+
+/* colour themes */
+.c-alkane{background:linear-gradient(135deg,#bfdbfe,#93c5fd)}
+.c-alkene{background:linear-gradient(135deg,#bbf7d0,#86efac)}
+.c-alkyne{background:linear-gradient(135deg,#e9d5ff,#c4b5fd)}
+.c-benzene{background:linear-gradient(135deg,#fecdd3,#fda4af)}
+.c-alcohol{background:linear-gradient(135deg,#d1fae5,#6ee7b7)}
+.c-carbonyl{background:linear-gradient(135deg,#fef9c3,#fde68a)}
+.c-acid{background:linear-gradient(135deg,#cffafe,#67e8f9)}
+.c-ester{background:linear-gradient(135deg,#fbcfe8,#f9a8d4)}
+.c-halide{background:linear-gradient(135deg,#e0e7ff,#c7d2fe)}
+.c-salt{background:linear-gradient(135deg,#ede9fe,#ddd6fe)}
+.c-special{background:linear-gradient(135deg,#fed7aa,#fdba74)}
+.c-polymer{background:linear-gradient(135deg,#ccfbf1,#99f6e4)}
+.c-danger{background:linear-gradient(135deg,#fee2e2,#fca5a5)}
+.c-inorganic{background:linear-gradient(135deg,#f1f5f9,#e2e8f0)}
+
+/* ── TEST MODAL ── */
+#test-modal{
+  display:none;position:fixed;top:56px;left:0;right:0;bottom:0;
+  background:rgba(7,10,20,.97);z-index:2000;overflow-y:auto
+}
+#test-wrap{max-width:740px;margin:30px auto;padding:24px}
+#test-header{text-align:center;margin-bottom:22px}
+#test-header h2{color:#e94560;font-size:24px;margin-bottom:6px}
+#test-header p{color:#94a3b8;font-size:13px}
+.score-bar{
+  display:flex;gap:22px;justify-content:center;
+  background:#0f1b35;border-radius:10px;padding:12px 20px;margin-bottom:18px
+}
+.sc-item{text-align:center}
+.sc-num{font-size:26px;font-weight:900;color:#fbbf24;display:block}
+.sc-lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.8px}
+.pbar{width:100%;height:5px;background:#1e293b;border-radius:3px;margin-bottom:18px;overflow:hidden}
+.pfill{height:100%;background:linear-gradient(90deg,#e94560,#c084fc);border-radius:3px;transition:width .4s}
+.qbox{background:#0f1b35;border:2px solid #1e3a5f;border-radius:14px;padding:26px;margin-bottom:16px}
+.step-tag{text-align:center;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:10px;letter-spacing:.5px}
+.q-title{text-align:center;color:#e2e8f0;font-size:15px;font-weight:700;margin-bottom:18px;line-height:1.5}
+.mols{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0;flex-wrap:wrap}
+.mol-card{background:#1e3a5f;border:2px solid #e94560;border-radius:12px;padding:14px 22px;text-align:center;min-width:130px}
+.mol-card .mf{font-family:'Courier New',monospace;font-size:17px;font-weight:900;color:white;display:block;margin-bottom:4px}
+.mol-card .mn{font-size:11px;color:#94a3b8}
+.arrow-big{font-size:32px;color:#e94560;font-weight:900}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.opt{
+  padding:13px 15px;border:2px solid #1e3a5f;background:#0d1117;
+  color:#e2e8f0;border-radius:10px;cursor:pointer;font-size:12.5px;
+  text-align:left;transition:all .2s;line-height:1.5;font-family:'Segoe UI',Arial,sans-serif
+}
+.opt:hover:not(:disabled){border-color:#4ade80;background:rgba(74,222,128,.1)}
+.opt.correct{border-color:#4ade80!important;background:rgba(74,222,128,.18)!important;color:#4ade80!important}
+.opt.wrong{border-color:#e94560!important;background:rgba(233,69,96,.18)!important;color:#e94560!important}
+.opt:disabled{cursor:default}
+#fb{text-align:center;font-size:14px;font-weight:700;min-height:28px;padding:8px;border-radius:8px;margin:12px 0}
+.fb-ok{color:#4ade80;background:rgba(74,222,128,.1)}
+.fb-no{color:#e94560;background:rgba(233,69,96,.1)}
+#t-ctrls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.path-steps{background:#0d1117;border:1px solid #1e3a5f;border-radius:10px;padding:14px;margin-top:12px}
+.path-steps h4{color:#c084fc;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.path-step{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;color:#e2e8f0}
+.ps-badge{background:#1e3a5f;border-radius:6px;padding:3px 8px;font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:#7dd3fc}
+.ps-arrow{color:#e94560;font-weight:900}
+.ps-rxn{color:#fbbf24;font-style:italic;font-size:11px}
+
+/* ── TOOLTIP ── */
+#tip{
+  position:fixed;background:#0f1b35;border:1.5px solid #e94560;border-radius:10px;
+  padding:11px 15px;font-size:12px;color:#e2e8f0;pointer-events:none;z-index:3000;
+  max-width:300px;display:none;box-shadow:0 6px 25px rgba(0,0,0,.6);line-height:1.6
+}
+#tip h4{color:#fbbf24;font-size:13px;margin-bottom:5px}
+#tip .tf{font-family:'Courier New',monospace;color:#7dd3fc;font-size:12px;font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <h1>⚗ Organic Chemistry</h1>
+  <span class="subtitle">Dr. Saif Soliman · G12 S26 · Sessions 13–20</span>
+  <button class="btn btn-map active" id="btn-map" onclick="showMap()">🗺 Reaction Map</button>
+  <button class="btn btn-test" id="btn-test" onclick="showTest()">🧪 Test Mode</button>
+  <button class="btn btn-reset" onclick="resetView()">⌖ Reset View</button>
+  <div class="zoom-group">
+    <div class="zb" onclick="zoom(1.25)">+</div>
+    <span id="zlvl">100%</span>
+    <div class="zb" onclick="zoom(0.8)">−</div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div id="legend">
+  <h4>Compound Types</h4>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#bfdbfe,#93c5fd)"></div>Alkane</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#bbf7d0,#86efac)"></div>Alkene</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#e9d5ff,#c4b5fd)"></div>Alkyne</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#fecdd3,#fda4af)"></div>Aromatic</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#d1fae5,#6ee7b7)"></div>Alcohol/Phenol</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#fef9c3,#fde68a)"></div>Carbonyl</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#cffafe,#67e8f9)"></div>Carboxylic Acid</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#fbcfe8,#f9a8d4)"></div>Ester</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe)"></div>Halide</div>
+  <div class="leg"><div class="legd" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)"></div>Salt / Other</div>
+</div>
+
+<!-- VIEWPORT -->
+<div id="viewport">
+  <div id="canvas">
+    <svg id="arrows-svg">
+      <defs>
+        <marker id="ah" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+        </marker>
+        <marker id="ah-red" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#e94560"/>
+        </marker>
+        <marker id="ah-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4ade80"/>
+        </marker>
+        <marker id="ah-yellow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#fbbf24"/>
+        </marker>
+        <marker id="ah-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#c084fc"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tip"></div>
+
+<!-- TEST MODAL -->
+<div id="test-modal">
+  <div id="test-wrap">
+    <div id="test-header">
+      <h2>🧪 Reaction Pathway Quiz</h2>
+      <p>Choose the correct reagent/reaction to transform compound A → B. Multi-step paths require selecting each step.</p>
+    </div>
+    <div class="score-bar">
+      <div class="sc-item"><span class="sc-num" id="sc-correct">0</span><span class="sc-lbl">Correct</span></div>
+      <div class="sc-item"><span class="sc-num" id="sc-wrong">0</span><span class="sc-lbl">Wrong</span></div>
+      <div class="sc-item"><span class="sc-num" id="sc-total">0</span><span class="sc-lbl">Total</span></div>
+    </div>
+    <div class="pbar"><div class="pfill" id="pbar" style="width:0%"></div></div>
+    <div id="qbox-area"></div>
+    <div id="t-ctrls">
+      <button class="btn btn-reset" id="btn-next" onclick="nextQuestion()" style="display:none">▶ Next Question</button>
+      <button class="btn btn-map" onclick="showMap()">← Back to Map</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════════════════ */
+
+const NODES = [
+  /* ── INORGANIC / PREP ── */
+  {id:'nh4cno',  label:'Ammonium Cyanate', formula:'NH₄CNO',          x:100,  y:100,  cls:'c-inorganic', info:'Inorganic; Wöhler 1828 converted this to urea, destroying vital force theory'},
+  {id:'urea',    label:'Urea',             formula:'NH₂CONH₂',        x:360,  y:100,  cls:'c-inorganic', info:'Organic molecule synthesised by Wöhler 1828 from inorganic NH₄CNO. First disproof of Vital Force Theory.'},
+  {id:'caco3',   label:'Calcium Carbonate',formula:'CaCO₃',           x:100,  y:280,  cls:'c-inorganic', info:'Limestone; heated to give CaO + CO₂'},
+  {id:'cao',     label:'Calcium Oxide\n(Quicklime)', formula:'CaO',   x:360,  y:280,  cls:'c-inorganic', info:'Used in soda lime (CaO+NaOH) for decarboxylation. Also reacts with C at 2000°C → CaC₂'},
+  {id:'cac2',    label:'Calcium Carbide',  formula:'CaC₂',            x:620,  y:280,  cls:'c-inorganic', info:'Made from CaO + 3C at 2000°C. Reacts with water to give ethyne (acetylene).'},
+
+  /* ── ALKANES ── */
+  {id:'methane', label:'Methane',          formula:'CH₄',             x:100,  y:520,  cls:'c-alkane', info:'Simplest alkane. C1 = gas. Very stable (σ bonds only). Undergoes free-radical halogenation, pyrolysis (1000°C→C+H₂), quenching (1500°C→C₂H₂), water-gas reaction (725°C), combustion.'},
+  {id:'ethane',  label:'Ethane',           formula:'C₂H₆',            x:100,  y:760,  cls:'c-alkane', info:'Alkane C2. Gas. Prepared by Wurtz (2CH₃Cl + 2Na). Dehydrogenation gives ethene.'},
+  {id:'propane', label:'Propane',          formula:'C₃H₈',            x:100,  y:980,  cls:'c-alkane', info:'Alkane C3. Gas. Dehydrogenation → propene + H₂ (Cr₂O₃/Δ). From soda-lime decarboxylation of butanoic acid salt.'},
+  {id:'butane',  label:'Butane',           formula:'C₄H₁₀',           x:100,  y:1200, cls:'c-alkane', info:'Alkane C4. Gas. 2 structural isomers (n-butane, isobutane). Cracking gives shorter alkane + alkene.'},
+  {id:'hexane',  label:'Hexane',           formula:'C₆H₁₄',           x:100,  y:1420, cls:'c-alkane', info:'Alkane C6. Liquid. Reforming with Pt/Δ → benzene + 4H₂. From heptanoic acid salt by soda-lime.'},
+  {id:'alkane',  label:'Alkane (general)', formula:'CₙH₂n+2',         x:400,  y:760,  cls:'c-alkane', info:'Formula CₙH₂ₙ₊₂. σ bonds only. Inactive/low reactivity. Free-radical halogenation, combustion, cracking, dehydrogenation. Lab prep: soda lime (RCOONa + NaOH/CaO).'},
+  {id:'ch3cl',   label:'Chloromethane',    formula:'CH₃Cl',            x:100,  y:1640, cls:'c-halide', info:'Primary alkyl halide. From CH₄ + Cl₂/UV. Wurtz rxn with 2Na gives ethane.'},
+  {id:'rhalide', label:'Alkyl Halide',     formula:'R-X',              x:400,  y:1420, cls:'c-halide', info:'From alkane + X₂/UV. Also from alkene + HX (Markovnikov). Wurtz: 2RX + 2Na → R-R + 2NaX. Elimination with alc. KOH → alkene. Aq. KOH → alcohol.'},
+
+  /* ── ALKYNES ── */
+  {id:'ethyne',  label:'Ethyne\n(Acetylene)',formula:'HC≡CH',          x:700,  y:520,  cls:'c-alkyne', info:'Terminal alkyne. Most acidic C-H (sp, 50% s-char, pKa≈25). +H₂O/HgSO₄ → ethanal. +2H₂/Ni → ethane. +3 (trimerization/Ni/Δ) → benzene. Gives ppts with Ag⁺ and Cu²⁺ salts.'},
+  {id:'propyne', label:'Propyne',           formula:'CH₃C≡CH',         x:700,  y:760,  cls:'c-alkyne', info:'Terminal alkyne. +H₂O/HgSO₄ → propanone (Markov hydration). +HX → 1,1-dihalide. Gives white ppt with AgNO₃/NH₃.'},
+  {id:'alkyne',  label:'Alkyne (general)', formula:'CₙH₂n-2',         x:700,  y:980,  cls:'c-alkyne', info:'Formula CₙH₂ₙ₋₂. Most reactive. σ+2π bonds. +H₂/Ni (×2)→alkane. +X₂/CCl₄ (×2)→1,1,2,2-tetrahalide. +H₂O/HgSO₄→enol→keto. Terminal alkynes react with AgNO₃/NH₃ (white ppt) and CuSO₄/NH₄OH (red-brown ppt).'},
+  {id:'vinylhal',label:'Vinyl Halide',      formula:'CH₂=CHX',         x:1000, y:520,  cls:'c-halide', info:'Formed from alkyne + 1 mol HX (Markovnikov). Step 1 of alkyne + HX. Further + HX gives 1,1-dihalide (not 1,2).'},
+  {id:'dihalo11',label:'1,1-Dihalide',      formula:'CH₃CHX₂',         x:1000, y:760,  cls:'c-halide', info:'From alkyne + 2HX (two Markovnikov additions). Both halogens on same carbon. NOT 1,2-dihalide.'},
+  {id:'tetrahalo',label:'1,1,2,2-\nTetrahalide',formula:'CHX₂-CHX₂',  x:1000, y:980,  cls:'c-halide', info:'From alkyne + 2 mol X₂/CCl₄. Both double bond carbons get 2 halogens each. Decolorizes Br₂.'},
+  {id:'enol',    label:'Enol (unstable)',   formula:'R-CH=C(OH)-',     x:1000, y:1200, cls:'c-carbonyl', info:'Unstable tautomer; immediately converts to keto form. Ethyne→ethanal; propyne→propanone (Markovnikov). Keto form is more stable.'},
+  {id:'silverac',label:'Silver Acetylide\n(white ppt)',formula:'RC≡CAg',x:700, y:1200, cls:'c-inorganic', info:'White precipitate. Test for terminal alkynes. Reagent: AgNO₃/NH₃. Internal/symmetric alkynes: no reaction.'},
+  {id:'copperac',label:'Copper Acetylide\n(red-brown ppt)',formula:'RC≡CCu',x:700,y:1420,cls:'c-inorganic',info:'Reddish-brown precipitate. Test for terminal alkynes. Reagent: CuSO₄/NH₄OH. Internal alkynes: no reaction.'},
+
+  /* ── ALKENES ── */
+  {id:'ethene',  label:'Ethene (Ethylene)', formula:'C₂H₄',            x:1350, y:520,  cls:'c-alkene', info:'Simplest alkene. +H₂O/H₂SO₄ → ethanol (1° alcohol; only alkene giving 1° by hydration). Addition polymerisation → PE. +H₂/Ni → ethane.'},
+  {id:'propene', label:'Propene (Propylene)',formula:'CH₃CH=CH₂',      x:1350, y:760,  cls:'c-alkene', info:'Alkene. From propane dehydrogenation. Markovnikov +HX → 2-halopropane. Anti-Markov (HBr/H₂O₂) → 1-bromopropane. Hydration → 2-propanol (2°).'},
+  {id:'alkene',  label:'Alkene (general)', formula:'CₙH₂n',            x:1350, y:1000, cls:'c-alkene', info:'Formula CₙH₂ₙ. Active (σ+π). Addition rxns: H₂/Ni (hydrogenation), X₂ (halogenation), HX (Markov/Anti-Markov), H₂O (hydration). Oxidation: cold KMnO₄→diol; hot KMnO₄→cleavage. Polymerisation. Prep: dehydration of alcohol, cracking, dehydrogenation.'},
+  {id:'diol',    label:'Vicinal Diol',      formula:'R(OH)-R\'(OH)',    x:1350, y:1220, cls:'c-alcohol', info:"Baeyer's test product. Cold dilute KMnO₄/OH⁻ + alkene → diol (no cleavage). Violet colour discharged (KMnO₄ reduced to MnO₂ brown)."},
+  {id:'dihalo12',label:'1,2-Dihalide',      formula:'CHX-CH₂X',        x:1350, y:1440, cls:'c-halide', info:'Vicinal dihalide. From alkene + X₂/CCl₄ (1 mol). Decolorises bromine water. Each double bond reacts with 1 mol Br₂.'},
+
+  /* ── BENZENE & AROMATICS ── */
+  {id:'benzene', label:'Benzene',           formula:'C₆H₆',            x:1800, y:520,  cls:'c-benzene', info:'Aromatic: cyclic, planar, sp², fully conjugated, 6π e⁻ (4n+2, n=1). All bonds equivalent (delocalized). Prefers substitution over addition. Hückel 4n+2 rule applies.'},
+  {id:'cyclohex',label:'Cyclohexane',        formula:'C₆H₁₂',           x:1800, y:280,  cls:'c-alkane', info:'Cycloalkane, 6-membered ring, 120° (no strain). Most stable cycloalkane. +H₂/Ni requires high temp (~320°C+). Chair conformation, no ring strain.'},
+  {id:'gammax',  label:'Gammaxane\n(Lindane/Insecticide)',formula:'C₆H₆Cl₆',x:1600,y:280,cls:'c-halide',info:'Addition product benzene + 3Cl₂/UV. Not Friedel-Crafts (UV conditions, no catalyst). Insecticide.'},
+  {id:'toluene', label:'Toluene',            formula:'C₆H₅CH₃',         x:2100, y:380,  cls:'c-benzene', info:'Benzene + CH₃Cl/AlCl₃ (Friedel-Crafts alkylation). CH₃ is o/p director (+I). Oxidation with KMnO₄ → benzoic acid. + 3HNO₃/H₂SO₄ → TNT.'},
+  {id:'clbenz',  label:'Chlorobenzene',      formula:'C₆H₅Cl',          x:2100, y:620,  cls:'c-halide', info:'Benzene + Cl₂/FeCl₃ (electrophilic sub). Cl is o/p director (−I but lone pair donation). + NaOH/300°C/pressure → phenol (harsh conditions needed).'},
+  {id:'nitrobenz',label:'Nitrobenzene',      formula:'C₆H₅NO₂',         x:2100, y:820,  cls:'c-benzene', info:'Benzene + HNO₃/H₂SO₄/50°C (nitration). NO₂ is meta director (EWG). Oil of mirbane. Reduction → aniline.'},
+  {id:'bensulfo',label:'Benzenesulfonic\nAcid',formula:'C₆H₅SO₃H',      x:2100, y:1020, cls:'c-acid', info:'Benzene + fuming H₂SO₄ (oleum) → sulfonation. SO₃H is meta director (EWG). Reversible with steam.'},
+  {id:'benzoic', label:'Benzoic Acid',       formula:'C₆H₅COOH',        x:2400, y:380,  cls:'c-acid', info:'Aromatic carboxylic acid. From toluene + hot KMnO₄. COOH is meta director (EWG). More acidic than CH₃COOH (aromaticity stabilises conjugate base). Reacts with Na₂CO₃ → CO₂ effervescence.'},
+  {id:'phenol',  label:'Phenol',             formula:'C₆H₅OH',          x:2400, y:620,  cls:'c-alcohol', info:'From chlorobenzene + NaOH/300°C. More acidic than alcohols (aryl ring -I effect weakens O-H). Reacts with NaOH (unlike alcohols), FeCl₃→violet, Br₂/H₂O→white ppt (2,4,6-tribromophenol). Does NOT react with NaHCO₃. OH is o/p director.'},
+  {id:'tnt',     label:'TNT',               formula:'2,4,6-trinitrotoluene',x:2700,y:280, cls:'c-danger', info:'Toluene + 3HNO₃/H₂SO₄ → 2,4,6-trinitrotoluene. Powerful explosive. Three NO₂ groups at ortho/para positions (CH₃ directs).'},
+  {id:'picric',  label:'Picric Acid',        formula:'2,4,6-TNP',        x:2700, y:620,  cls:'c-danger', info:'Phenol + 3HNO₃/H₂SO₄ → 2,4,6-trinitrophenol. Explosive acid. Yellow solid. OH directs NO₂ to o/p positions.'},
+  {id:'benzacyl',label:'Acetophenone\n(Aryl ketone)',formula:'C₆H₅COR', x:2400, y:820,  cls:'c-carbonyl', info:'Friedel-Crafts acylation: benzene + RCOCl/AlCl₃. COR is meta director (EWG). Acylation preferred over alkylation (no rearrangement).'},
+  {id:'naphenox',label:'Sodium Phenoxide',   formula:'C₆H₅ONa',         x:2700, y:820,  cls:'c-salt', info:'Phenol + NaOH → sodium phenoxide + H₂O. Phenol + Na → sodium phenoxide + ½H₂. Shows phenol is acidic enough to react with NaOH (alcohols cannot).'},
+
+  /* ── ALCOHOLS ── */
+  {id:'methanol',label:'Methanol',           formula:'CH₃OH',            x:2800, y:520,  cls:'c-alcohol', info:'1° alcohol. Very toxic. From CO + 2H₂ (industrial). Oxidation → HCHO → HCOOH. Fermentation not applicable. Forms methyl ester with acids.'},
+  {id:'ethanol', label:'Ethanol',            formula:'C₂H₅OH',           x:2800, y:760,  cls:'c-alcohol', info:'1° alcohol (primary; only alkene hydration giving 1°). From ethene+H₂O/H₂SO₄ or fermentation (sucrose→glucose→EtOH+CO₂). Iodoform test +ve. KMnO₄→acetic acid. Dehydration 180°C→ethene; 140°C→ether.'},
+  {id:'prim_alc',label:'1° Alcohol',         formula:'RCH₂OH',           x:2800, y:1000, cls:'c-alcohol', info:'Primary alcohol: 2 H on carbinol C. Mild KMnO₄ → aldehyde. Strong KMnO₄ → carboxylic acid. Dehydration → alkene (H₂SO₄/180°C) or ether (H₂SO₄/140°C). Na → alkoxide + H₂. Esterification with RCOOH.'},
+  {id:'sec_alc', label:'2° Alcohol',         formula:'R₂CHOH',           x:2800, y:1220, cls:'c-alcohol', info:'Secondary alcohol: 1 H on carbinol C. KMnO₄ → ketone (not acid). Iodoform +ve if CH₃CH(OH)-. Formed from Markovnikov hydration (except ethene→EtOH which is 1°).'},
+  {id:'tert_alc',label:'3° Alcohol',         formula:'R₃COH',            x:2800, y:1440, cls:'c-alcohol', info:'Tertiary alcohol: 0 H on carbinol C. KMnO₄ → NO reaction; violet stays. Cannot be oxidised to carbonyl. Na → alkoxide + H₂. Most stable carbocation intermediate (Markovnikov).'},
+  {id:'glycerol',label:'Glycerol',           formula:'C₃H₅(OH)₃',       x:2800, y:1660, cls:'c-alcohol', info:'Trihydric alcohol (polyol). From hydrolysis of triglycerides + NaOH. + HNO₃/H₂SO₄ → nitroglycerin. Used in soap making (by-product).'},
+  {id:'alkoxide',label:'Metal Alkoxide',     formula:'RONa + ½H₂',       x:3100, y:1000, cls:'c-salt', info:'Alcohol + Na metal → sodium alkoxide + H₂(g). Reaction shows alcohol has weak acidity (stronger than water, weaker than phenol).'},
+
+  /* ── CARBONYLS ── */
+  {id:'ethanal', label:'Ethanal\n(Acetaldehyde)',formula:'CH₃CHO',       x:3100, y:520,  cls:'c-carbonyl', info:'Aldehyde. From ethanol mild KMnO₄ or ethyne hydration (+H₂O/HgSO₄). Iodoform test +ve (CH₃CHO). Oxidised to acetic acid (strong KMnO₄).'},
+  {id:'hcho',    label:'Methanal\n(Formaldehyde)',formula:'HCHO',         x:3100, y:280,  cls:'c-carbonyl', info:'Simplest aldehyde. From methanol oxidation. Oxidised further → formic acid. Used in antiseptics (formalin), plastics.'},
+  {id:'propanone',label:'Propanone\n(Acetone)',formula:'CH₃COCH₃',       x:3100, y:760,  cls:'c-carbonyl', info:'Simplest ketone. From propyne hydration (Markovnikov: H on terminal C, OH on C2→tautomerism→ketone). From 2-propanol oxidation. Iodoform test +ve (CH₃CO-). Solvent.'},
+  {id:'aldehyde',label:'Aldehyde (general)',formula:'RCHO',              x:3100, y:1000, cls:'c-carbonyl', info:'FG priority 4th (after COOH, COOR, CONH₂). Suffix -al. Oxidised to RCOOH (strong KMnO₄). From 1° alcohol mild oxidation or ozonolysis of =CHR terminal. Fehling/Tollens test positive.'},
+  {id:'ketone',  label:'Ketone (general)', formula:'RCOR\'',             x:3100, y:1220, cls:'c-carbonyl', info:"FG priority 5th. Suffix -one. From 2° alcohol oxidation, =CR₂ ozonolysis, or =CR₂ hot KMnO₄. Cannot be oxidised further (no α-H for Tollens). Baeyer's test negative. Iodoform +ve if CH₃COR."},
+
+  /* ── ACIDS ── */
+  {id:'hcooh',   label:'Formic Acid\n(Methanoic acid)',formula:'HCOOH',  x:3400, y:280,  cls:'c-acid', info:'Simplest carboxylic acid. Most acidic organic acid (HCOOH>CH₃COOH; shorter chain=more acidic). From methanal oxidation. Reacts with Na₂CO₃ and NaHCO₃ → CO₂.'},
+  {id:'acetic',  label:'Acetic Acid\n(Ethanoic acid)', formula:'CH₃COOH',x:3400, y:520,  cls:'c-acid', info:'From ethanol strong KMnO₄ or ethanal oxidation. From sodium acetate + soda lime → methane. Stronger than higher acids (shorter chain). Esterification → esters. Acidity: HCOOH > benzoic > CH₃COOH.'},
+  {id:'rcooh',   label:'Carboxylic Acid', formula:'RCOOH',               x:3400, y:760,  cls:'c-acid', info:'Highest FG priority (suffix -oic acid). H-bonds → dimers → highest BP (same MM: acid>alcohol>ester>ether). Na₂CO₃/NaHCO₃→CO₂. Esterification with ROH (H₂SO₄/Δ, reversible). Reduction +2H₂/CuCrO₄ → 1° alcohol. Salt + NaOH/CaO → alkane. EWG→↑acidity; EDG→↓acidity.'},
+  {id:'benzoic', label:'Benzoic Acid',    formula:'C₆H₅COOH',           x:2400, y:380,  cls:'c-acid', info:'Aromatic carboxylic acid. From toluene + hot KMnO₄. COOH is meta director (EWG). More acidic than CH₃COOH (aromaticity stabilises conjugate base). Reacts with Na₂CO₃ → CO₂ effervescence.'},
+
+  /* ── ESTERS & SALTS ── */
+  {id:'ester',   label:'Ester (general)', formula:'RCOOR\'',             x:3700, y:520,  cls:'c-ester', info:'From RCOOH + HOR\' / H₂SO₄/Δ (esterification, reversible). Hydrolysis: H₂SO₄→acid+alcohol; NaOH (saponification)→salt+alcohol; NH₃ (ammonolysis)→amide+alcohol. Low BP (no H-bonds). Fruity smell. Same MF as carboxylic acid.'},
+  {id:'naoacet', label:'Sodium Acetate',  formula:'CH₃COONa',            x:3700, y:280,  cls:'c-salt', info:'From acetic acid + NaOH. Soda lime (CaO/Δ) → methane + Na₂CO₃. Lab prep of methane.'},
+  {id:'rcoona',  label:'Carboxylate Salt',formula:'RCOONa',              x:3700, y:760,  cls:'c-salt', info:'From RCOOH + NaOH. Soda lime (CaO/Δ) → alkane (1 C less). Saponification product (soap for fatty acid salts).'},
+  {id:'amide',   label:'Amide',           formula:'RCONH₂',              x:3700, y:1000, cls:'c-salt', info:'From ester + NH₃ (ammonolysis). Suffix -amide. Linkage in nylon (polyamide). High BP (N-H bonds). FG priority 3rd (after COOH, COOR).'},
+  {id:'methform',label:'Methyl Formate',  formula:'HCOOCH₃',             x:3700, y:1220, cls:'c-ester', info:'From HCOOH + CH₃OH / H₂SO₄. Made from methanol only: split batch; oxidise one half → HCOOH, then esterify with other half. Special synthesis.'},
+  {id:'aspirin', label:'Aspirin (ASA)',   formula:'Acetylsalicylic acid',x:3700, y:1440, cls:'c-ester', info:'Salicylic acid + ethanoic anhydride / H₂SO₄ → aspirin. Ester drug. Anti-inflammatory, analgesic.'},
+  {id:'wintergr',label:'Oil of Wintergreen',formula:'Methyl salicylate', x:3700, y:1620, cls:'c-ester', info:'Salicylic acid + methanol / H₂SO₄ → methyl salicylate (oil of wintergreen). Ester with characteristic odour.'},
+  {id:'ether',   label:'Ether (Dialkyl)',formula:'R-O-R\'',              x:3100, y:1440, cls:'c-special', info:'From alcohol + H₂SO₄/140°C (dehydration, lower temp than alkene). Only VdW → lowest BP (acid>alcohol>ester>ether same MM). Insoluble in water, soluble in organic solvents. Formula CₙH₂ₙ₊₂O (isomers with alcohols).'},
+
+  /* ── FATS / POLYMERS ── */
+  {id:'sucrose', label:'Sucrose',          formula:'C₁₂H₂₂O₁₁',         x:2100, y:1400, cls:'c-special', info:'Disaccharide. Invertase/zymase enzyme cleaves → glucose + fructose. Yeast (zymase) ferments → 2C₂H₅OH + 2CO₂.'},
+  {id:'glucose', label:'Glucose',          formula:'C₆H₁₂O₆',           x:2400, y:1400, cls:'c-special', info:'Monosaccharide. From sucrose hydrolysis. Yeast fermentation (zymase) → ethanol + CO₂.'},
+  {id:'trigly',  label:'Triglyceride\n(Fat/Oil)',formula:'C₃H₅(OOCR)₃', x:2800, y:2000, cls:'c-special', info:'Ester of glycerol + 3 fatty acids. Fats: saturated fatty acids; Oils: unsaturated. Saponification (NaOH) → glycerol + soap (sodium salt of fatty acid).'},
+  {id:'soap',    label:'Soap\n(Fatty acid salt)',formula:'RCOONa',        x:2400, y:2000, cls:'c-salt', info:'From triglyceride + NaOH (saponification). Long-chain carboxylate salt. Emulsifier: hydrophilic head, hydrophobic tail.'},
+  {id:'tng',     label:'Nitroglycerin\n(TNG)',formula:'C₃H₅(ONO₂)₃',    x:3200, y:2000, cls:'c-danger', info:'Glycerol + HNO₃/H₂SO₄ → nitroglycerin. Powerful explosive (Nobel). Also vasodilator (angina treatment). Trinitrate ester.'},
+  {id:'pe',      label:'Polyethylene (PE)',formula:'(-CH₂-CH₂-)ₙ',      x:1100, y:1800, cls:'c-polymer', info:'Addition polymer of ethene. Monomer: CH₂=CH₂ + free radical (H₂O₂). π bond opens; same empirical formula as monomer.'},
+  {id:'pp',      label:'Polypropylene (PP)',formula:'(-CH₂-CHCH₃-)ₙ',   x:1350, y:1800, cls:'c-polymer', info:'Addition polymer of propene (CH₃CH=CH₂) + free radical. Used for containers, fibres.'},
+  {id:'pvc',     label:'PVC',             formula:'(-CH₂-CHCl-)ₙ',      x:1600, y:1800, cls:'c-polymer', info:'Polyvinyl chloride. Addition polymer of vinyl chloride (CH₂=CHCl) + free radical. Pipes, cables.'},
+  {id:'teflon',  label:'Teflon (PTFE)',   formula:'(-CF₂-CF₂-)ₙ',       x:1850, y:1800, cls:'c-polymer', info:'Addition polymer of tetrafluoroethylene (CF₂=CF₂). Very chemically resistant. Non-stick coatings.'},
+  {id:'pet',     label:'PET (Polyester)', formula:'[-C₆H₄-COO-C₂H₄-O-]ₙ',x:2200,y:2000,cls:'c-polymer', info:'Condensation polymer. Monomers: terephthalic acid (HOOC-C₆H₄-COOH) + 1,2-ethanediol (HO-CH₂CH₂-OH). Byproduct: H₂O. Bottles, fibres (polyester clothing).'},
+  {id:'nylon',   label:'Nylon 6,6\n(Polyamide)',formula:'Hexanedioic acid + Hexanediamine',x:2600,y:2000,cls:'c-polymer', info:'Condensation polymer. Monomers: 1,6-hexanedioic acid + 1,6-hexanediamine. Byproduct: H₂O. Amide (-CO-NH-) linkage. Clothing, rope, gears.'},
+];
+
+const EDGES = [
+  /* Wöhler */
+  {f:'nh4cno',  t:'urea',    label:'Heat (Wöhler 1828)',      color:'green'},
+  /* Calcium carbide chain */
+  {f:'caco3',   t:'cao',     label:'Heat: CaCO₃→CaO+CO₂',    color:'default'},
+  {f:'cao',     t:'cac2',    label:'3C + CaO → CaC₂+CO\n(2000°C, electric furnace)',color:'default'},
+  {f:'cac2',    t:'ethyne',  label:'CaC₂ + 2H₂O →\nC₂H₂ + Ca(OH)₂',color:'purple'},
+  /* Methane reactions */
+  {f:'methane', t:'ethyne',  label:'1500°C rapid cool\n(Quenching)', color:'red'},
+  {f:'methane', t:'ch3cl',   label:'Cl₂/UV or 400°C\n(Free-radical halogenation)',color:'default'},
+  {f:'methane', t:'alkane',  label:'(represents general\nalkane behaviour)',color:'default'},
+  /* Alkane reactions */
+  {f:'alkane',  t:'alkene',  label:'Cracking (cat/heat)\nor Dehydrogenation\nCr₂O₃/500°C (+H₂)',color:'default'},
+  {f:'alkane',  t:'rhalide', label:'X₂/UV or 400°C\nFree-radical halogenation\n(ease: 3°>2°>1°H)',color:'default'},
+  {f:'alkane',  t:'benzene', label:'Reforming: Pt/Δ\n(C₆H₁₄→C₆H₆+4H₂)',color:'yellow'},
+  {f:'hexane',  t:'benzene', label:'Pt/Δ Reforming\nC₆H₁₄ → C₆H₆ + 4H₂',color:'yellow'},
+  /* Soda lime (decarboxylation) */
+  {f:'rcoona',  t:'alkane',  label:'Soda lime: CaO/NaOH/Δ\nRCOONa→R-H+Na₂CO₃\n(1 C less than acid)',color:'red'},
+  {f:'naoacet', t:'methane', label:'Soda lime: CaO/Δ\nCH₃COONa→CH₄+Na₂CO₃',color:'red'},
+  /* Ethane */
+  {f:'ch3cl',   t:'ethane',  label:'Wurtz: 2CH₃Cl+2Na\n→C₂H₆+2NaCl',color:'green'},
+  {f:'ethane',  t:'ethene',  label:'Dehydrogenation\nCr₂O₃/500°C (+H₂)',color:'default'},
+  /* Wurtz general */
+  {f:'rhalide', t:'alkane',  label:'Wurtz: 2RX+2Na\n→R-R+2NaX',color:'green'},
+  {f:'rhalide', t:'alkene',  label:'Elimination:\nAlc. KOH (Zaitsev rule)\nMajor=more subst. alkene',color:'purple'},
+  {f:'rhalide', t:'prim_alc',label:'Substitution:\nAq. KOH (SN2)',color:'green'},
+  /* Alkyne reactions */
+  {f:'ethyne',  t:'ethene',  label:'+H₂/Ni (lindlar)\nPartial hydrogenation',color:'green'},
+  {f:'ethyne',  t:'benzene', label:'Trimerization:\n3HC≡CH →Ni/Δ→ C₆H₆',color:'red'},
+  {f:'ethyne',  t:'ethanal', label:'+H₂O / HgSO₄·H₂SO₄\n(hydration-tautomerism)\nMarkov: CH₃CHO',color:'yellow'},
+  {f:'propyne', t:'propanone',label:'+H₂O / HgSO₄·H₂SO₄\n(Markovnikov)\n→propanone (acetone)',color:'yellow'},
+  {f:'alkyne',  t:'vinylhal',label:'+HX (step 1)\nMarkovnikov',color:'default'},
+  {f:'vinylhal',t:'dihalo11',label:'+HX (step 2)\n→1,1-dihalide (not 1,2!)',color:'default'},
+  {f:'alkyne',  t:'tetrahalo',label:'+2X₂/CCl₄\n→1,1,2,2-tetrahalide',color:'default'},
+  {f:'alkyne',  t:'enol',    label:'+H₂O/HgSO₄/H₂SO₄\n(enol intermediate)',color:'yellow'},
+  {f:'enol',    t:'aldehyde',label:'Tautomerism\n(keto more stable)',color:'yellow'},
+  {f:'alkyne',  t:'silverac',label:'AgNO₃/NH₃ → white ppt\n(terminal alkynes only)',color:'default'},
+  {f:'alkyne',  t:'copperac',label:'CuSO₄/NH₄OH →\nred-brown ppt\n(terminal alkynes only)',color:'default'},
+  {f:'alkyne',  t:'alkene',  label:'+H₂/Ni (step 1)',          color:'green'},
+  {f:'alkyne',  t:'alkane',  label:'+2H₂/Ni (full hydrog.)',   color:'green'},
+  /* Alkene reactions */
+  {f:'alkene',  t:'alkane',  label:'+H₂/Ni/150-300°C\n(Hydrogenation)',color:'green'},
+  {f:'alkene',  t:'dihalo12',label:'+X₂/CCl₄\n(Halogenation)\ndecolorizes Br₂',color:'default'},
+  {f:'alkene',  t:'rhalide', label:'+HX (Markovnikov)\nH→more H carbon\nX→fewer H carbon',color:'default'},
+  {f:'alkene',  t:'prim_alc',label:'+HBr/H₂O₂\nAnti-Markovnikov\n(Br→less subst. C)',color:'red'},
+  {f:'alkene',  t:'sec_alc', label:'+H₂O/H₂SO₄/110°C\nHydration (Markovnikov)\nAll except ethene→2°',color:'yellow'},
+  {f:'ethene',  t:'ethanol', label:'+H₂O/H₂SO₄/110°C\nHydration → 1° alcohol\n(unique: ethene only)',color:'yellow'},
+  {f:'alkene',  t:'diol',    label:'Cold dil. KMnO₄/OH⁻\nBaeyer\'s test\n(violet discharged→brown)',color:'purple'},
+  {f:'alkene',  t:'ketone',  label:'Hot KMnO₄/H⁺ (cleavage)\n=CR₂ → ketone',color:'red'},
+  {f:'alkene',  t:'rcooh',   label:'Hot KMnO₄/H⁺ (cleavage)\n=CHR → RCOOH\n=CH₂ → CO₂+H₂O',color:'red'},
+  {f:'alkene',  t:'pe',      label:'Addition Polymerisation\nfree radical H₂O₂/O₂\n(ethene→PE)',color:'purple'},
+  {f:'propene', t:'pp',      label:'Addition Polymerisation\nfree radical',color:'purple'},
+  {f:'alkene',  t:'pvc',     label:'Addition Polymerisation\n(vinyl chloride→PVC)',color:'purple'},
+  /* Benzene reactions */
+  {f:'benzene', t:'cyclohex',label:'+3H₂/Pt\n(Addition—resists, needs force)',color:'green'},
+  {f:'benzene', t:'gammax',  label:'+3Cl₂/UV\nAddition → Gammaxane\n(insecticide)',color:'default'},
+  {f:'benzene', t:'toluene', label:'FC Alkylation:\nRCl/AlCl₃/50°C',color:'yellow'},
+  {f:'benzene', t:'clbenz',  label:'Electrophilic Sub:\nCl₂/FeCl₃\n(o/p directing)',color:'default'},
+  {f:'benzene', t:'nitrobenz',label:'Nitration:\nHNO₃/H₂SO₄/50°C',color:'red'},
+  {f:'benzene', t:'bensulfo',label:'Sulfonation:\nFuming H₂SO₄ (SO₃)',color:'default'},
+  {f:'benzene', t:'benzacyl',label:'FC Acylation:\nRCOCl/AlCl₃',color:'yellow'},
+  {f:'toluene', t:'benzoic', label:'Oxidation:\nHot KMnO₄/H⁺',color:'red'},
+  {f:'toluene', t:'tnt',     label:'+3HNO₃/H₂SO₄\nTri-nitration',color:'red'},
+  {f:'clbenz',  t:'phenol',  label:'NaOH/300°C/pressure\n(hydrolysis)',color:'purple'},
+  {f:'phenol',  t:'picric',  label:'+3HNO₃/H₂SO₄\nTri-nitration (o/p director)',color:'red'},
+  {f:'phenol',  t:'naphenox',label:'+ NaOH → Na-phenoxide\n(phenol more acidic\nthan alcohols)',color:'green'},
+  {f:'phenol',  t:'naphenox',label:'+ Na → Na-phenoxide + ½H₂',color:'green'},
+  /* Alcohol reactions */
+  {f:'prim_alc',t:'aldehyde',label:'Mild oxidation:\nMild KMnO₄/OH⁻',color:'yellow'},
+  {f:'aldehyde',t:'rcooh',   label:'Strong oxidation:\nHot KMnO₄/H⁺\nor further oxidation',color:'red'},
+  {f:'sec_alc', t:'ketone',  label:'Oxidation: KMnO₄\n(2°→ketone; no further rxn)',color:'yellow'},
+  {f:'prim_alc',t:'alkene',  label:'Dehydration:\nH₂SO₄/180°C or Al₂O₃/Δ',color:'default'},
+  {f:'prim_alc',t:'ether',   label:'Dehydration:\nH₂SO₄/140°C\n(lower temp→ether)',color:'default'},
+  {f:'prim_alc',t:'ester',   label:'Esterification:\n+RCOOH/H₂SO₄/Δ\n(reversible)',color:'purple'},
+  {f:'prim_alc',t:'alkoxide',label:'+Na metal\n→ alkoxide + ½H₂',color:'default'},
+  {f:'ethanol', t:'acetic',  label:'Strong KMnO₄ (1°→acid)\nor mild→CH₃CHO→acid',color:'red'},
+  {f:'ethanol', t:'ethanal', label:'Mild KMnO₄/OH⁻\n→ ethanal (stop)',color:'yellow'},
+  {f:'methanol',t:'hcho',    label:'Mild KMnO₄/OH⁻\n→ methanal',color:'yellow'},
+  {f:'hcho',    t:'hcooh',   label:'Strong KMnO₄\n→ formic acid',color:'red'},
+  {f:'glycerol',t:'trigly',  label:'+3 fatty acids / H₂SO₄\n→ triglyceride (fat/oil)',color:'purple'},
+  {f:'glycerol',t:'tng',     label:'+HNO₃/H₂SO₄\n→ nitroglycerin',color:'red'},
+  /* Acid reactions */
+  {f:'acetic',  t:'naoacet', label:'+NaOH → sodium acetate',color:'green'},
+  {f:'naoacet', t:'methane', label:'Soda lime CaO/Δ\n→ CH₄ + Na₂CO₃',color:'red'},
+  {f:'rcooh',   t:'rcoona',  label:'+NaOH → carboxylate salt',color:'green'},
+  {f:'rcooh',   t:'ester',   label:'Esterification:\n+ROH/H₂SO₄/Δ\n(reversible, equilibrium)',color:'purple'},
+  {f:'rcooh',   t:'prim_alc',label:'Reduction:\n+2H₂/CuCrO₄/400°C\n→ 1° alcohol',color:'green'},
+  {f:'acetic',  t:'ester',   label:'Esterification:\n+ROH/H₂SO₄/Δ',color:'purple'},
+  /* Ester reactions */
+  {f:'ester',   t:'rcooh',   label:'Acid hydrolysis:\nH₂SO₄/heat\n(reversible)',color:'yellow'},
+  {f:'ester',   t:'rcoona',  label:'Saponification:\n+NaOH\n→ salt + alcohol\n(Soap)',color:'red'},
+  {f:'ester',   t:'amide',   label:'Ammonolysis:\n+NH₃\n→ amide + alcohol',color:'purple'},
+  {f:'ester',   t:'prim_alc',label:'Hydrolysis:\n→ alcohol component',color:'green'},
+  {f:'methanol',t:'methform',label:'Esterification:\nHCOOH + CH₃OH/H₂SO₄\n→ HCOOCH₃',color:'purple'},
+  {f:'hcooh',   t:'methform',label:'Esterification:\n+CH₃OH/H₂SO₄\n→ methyl formate',color:'purple'},
+  /* Triglyceride/Soap */
+  {f:'trigly',  t:'soap',    label:'Saponification:\n+NaOH → soap +\nglycerol',color:'red'},
+  {f:'trigly',  t:'glycerol',label:'Saponification:\n+NaOH → glycerol +\nsoap',color:'green'},
+  /* Fermentation */
+  {f:'sucrose', t:'glucose', label:'Invertase/zymase\n(enzymatic hydrolysis)',color:'green'},
+  {f:'glucose', t:'ethanol', label:'Yeast (zymase)\n→2C₂H₅OH + 2CO₂',color:'green'},
+  /* Polymer - condensation */
+  {f:'rcooh',   t:'pet',     label:'Condensation polymer:\nterephthalic acid +\n1,2-ethanediol (+H₂O)',color:'purple'},
+  {f:'rcooh',   t:'nylon',   label:'Condensation polymer:\nhexanedioic acid +\nhexanediamine (+H₂O)',color:'purple'},
+  /* Key conversions */
+  {f:'methane', t:'ethyne',  label:'1500°C Quenching\n2CH₄→C₂H₂+3H₂',color:'red'},
+  {f:'propane', t:'propene', label:'Dehydrogenation:\nCr₂O₃/500°C → CH₃CH=CH₂+H₂',color:'default'},
+  {f:'ethanal', t:'acetic',  label:'Strong KMnO₄\n→ acetic acid',color:'red'},
+  {f:'propanone',t:'ketone', label:'General ketone\nbehaviour',color:'default'},
+];
+
+/* ═══════════════════════════════════════════════════════
+   RENDERING
+═══════════════════════════════════════════════════════ */
+const canvas = document.getElementById('canvas');
+const svg    = document.getElementById('arrows-svg');
+
+// Build node index
+const nodeMap = {};
+NODES.forEach(n=>{ nodeMap[n.id]=n; });
+
+// Calculate node dimensions (approx)
+function nodeDims(n){
+  const lines = (n.formula+'\n'+n.label).split('\n');
+  const maxLen = Math.max(...lines.map(l=>l.length));
+  const w = Math.max(130, Math.min(195, maxLen*7.5+26));
+  const h = 65 + (n.label.split('\n').length-1)*14;
+  return {w,h};
+}
+
+// Render nodes
+NODES.forEach(n=>{
+  const el = document.createElement('div');
+  el.className = `node ${n.cls}`;
+  const d = nodeDims(n);
+  el.style.left = n.x+'px';
+  el.style.top  = n.y+'px';
+  el.style.width = d.w+'px';
+  el.innerHTML = `<div class="node-formula">${n.formula}</div><div class="node-name">${n.label.replace(/\n/g,'<br>')}</div>`;
+  el.dataset.id = n.id;
+  el.addEventListener('mouseenter', e=> showTip(e, n));
+  el.addEventListener('mouseleave', hideTip);
+  canvas.appendChild(el);
+  n._el = el;
+});
+
+// Draw edge with bezier
+function drawEdge(edge){
+  const from = nodeMap[edge.f];
+  const to   = nodeMap[edge.t];
+  if(!from||!to) return;
+  const fd = nodeDims(from), td = nodeDims(to);
+  const fx = from.x + fd.w/2, fy = from.y + fd.h/2;
+  const tx = to.x   + td.w/2, ty = to.y   + td.h/2;
+
+  // Compute edge-crossing points
+  const dx = tx-fx, dy = ty-fy;
+  const len = Math.sqrt(dx*dx+dy*dy)||1;
+  const ux=dx/len, uy=dy/len;
+  const sx = fx+ux*(fd.w/2+4), sy = fy+uy*(fd.h/2+4);
+  const ex = tx-ux*(td.w/2+10), ey = ty-uy*(td.h/2+10);
+
+  // Slight curve offset for parallel edges
+  const off = (edge._idx||0)*28;
+  const cx = (sx+ex)/2 - uy*off, cy = (sy+ey)/2 + ux*off;
+
+  const colors={red:'#e94560',green:'#4ade80',yellow:'#fbbf24',purple:'#c084fc',default:'#64748b'};
+  const c = colors[edge.color]||colors.default;
+  const marker = `url(#ah${edge.color&&edge.color!='default'?'-'+edge.color:''})`;
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',`M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`);
+  path.setAttribute('stroke',c);
+  path.setAttribute('stroke-width','1.8');
+  path.setAttribute('fill','none');
+  path.setAttribute('marker-end',marker);
+  path.setAttribute('opacity','0.7');
+  svg.appendChild(path);
+
+  // Label on path
+  const mid = 0.5;
+  const lx = (1-mid)*(1-mid)*sx + 2*(1-mid)*mid*cx + mid*mid*ex;
+  const ly = (1-mid)*(1-mid)*sy + 2*(1-mid)*mid*cy + mid*mid*ey;
+
+  const lines = edge.label.split('\n');
+  const lh = 13;
+  const totalH = lines.length * lh;
+
+  const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  const pad=5;
+  const maxW = Math.max(...lines.map(l=>l.length))*6.2;
+  bg.setAttribute('x', lx - maxW/2 - pad);
+  bg.setAttribute('y', ly - totalH/2 - pad);
+  bg.setAttribute('width', maxW + pad*2);
+  bg.setAttribute('height', totalH + pad*2);
+  bg.setAttribute('rx','5'); bg.setAttribute('ry','5');
+  bg.setAttribute('fill','rgba(13,17,23,0.88)');
+  bg.setAttribute('stroke',c); bg.setAttribute('stroke-width','0.8');
+  svg.appendChild(bg);
+
+  lines.forEach((line,i)=>{
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', lx);
+    t.setAttribute('y', ly - totalH/2 + i*lh + lh*0.75);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('fill', c);
+    t.setAttribute('font-size','10');
+    t.setAttribute('font-family','Segoe UI,Arial,sans-serif');
+    t.setAttribute('font-weight','600');
+    t.textContent = line;
+    svg.appendChild(t);
+  });
+}
+
+// Count parallel edges to offset labels
+const edgeCount={};
+EDGES.forEach(e=>{
+  const key=[e.f,e.t].sort().join('-');
+  edgeCount[key]=(edgeCount[key]||0);
+  e._idx = edgeCount[key];
+  edgeCount[key]++;
+});
+EDGES.forEach(drawEdge);
+
+/* ═══════════════════════════════════════════════════════
+   PAN & ZOOM
+═══════════════════════════════════════════════════════ */
+let scale=0.45, tx=80, ty=60;
+let dragging=false, lx=0, ly=0;
+const vp = document.getElementById('viewport');
+
+function applyTransform(){
+  canvas.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
+  document.getElementById('zlvl').textContent=Math.round(scale*100)+'%';
+}
+applyTransform();
+
+vp.addEventListener('mousedown',e=>{
+  if(e.target.classList.contains('node')||e.target.closest('.node'))return;
+  dragging=true; lx=e.clientX; ly=e.clientY;
+  vp.classList.add('grabbing');
+});
+window.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  tx+=e.clientX-lx; ty+=e.clientY-ly;
+  lx=e.clientX; ly=e.clientY;
+  applyTransform();
+});
+window.addEventListener('mouseup',()=>{ dragging=false; vp.classList.remove('grabbing'); });
+
+vp.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const factor = e.deltaY<0?1.1:0.9;
+  const rect=vp.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  tx = mx + (tx-mx)*factor;
+  ty = my + (ty-my)*factor;
+  scale = Math.min(3, Math.max(0.1, scale*factor));
+  applyTransform();
+},{passive:false});
+
+function zoom(f){
+  const cx=vp.clientWidth/2, cy=vp.clientHeight/2;
+  tx = cx+(tx-cx)*f; ty = cy+(ty-cy)*f;
+  scale = Math.min(3, Math.max(0.1, scale*f));
+  applyTransform();
+}
+
+function resetView(){ scale=0.45; tx=80; ty=60; applyTransform(); }
+
+/* ═══════════════════════════════════════════════════════
+   TOOLTIP
+═══════════════════════════════════════════════════════ */
+const tip = document.getElementById('tip');
+function showTip(e, n){
+  tip.innerHTML=`<h4>${n.formula} — ${n.label.replace(/\n/,' / ')}</h4><p>${n.info||''}</p>`;
+  tip.style.display='block';
+  moveTip(e);
+}
+function moveTip(e){ tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px'; }
+function hideTip(){ tip.style.display='none'; }
+window.addEventListener('mousemove', e=>{ if(tip.style.display!='none') moveTip(e); });
+
+/* ═══════════════════════════════════════════════════════
+   MODE TOGGLE
+═══════════════════════════════════════════════════════ */
+function showMap(){
+  document.getElementById('test-modal').style.display='none';
+  document.getElementById('btn-map').classList.add('active');
+  document.getElementById('btn-test').classList.remove('active');
+}
+function showTest(){
+  document.getElementById('test-modal').style.display='block';
+  document.getElementById('btn-test').classList.add('active');
+  document.getElementById('btn-map').classList.remove('active');
+  if(questions.length===0) nextQuestion();
+}
+
+/* ═══════════════════════════════════════════════════════
+   TEST MODE
+═══════════════════════════════════════════════════════ */
+
+// Build adjacency for pathfinding
+const adj = {};
+NODES.forEach(n=>{ adj[n.id]=[]; });
+EDGES.forEach(e=>{
+  if(!adj[e.f]) adj[e.f]=[];
+  adj[e.f].push({to:e.t, label:e.label, edge:e});
+});
+
+// BFS shortest path
+function bfsPath(start, end){
+  const visited={[start]:null};
+  const queue=[start];
+  while(queue.length){
+    const cur=queue.shift();
+    if(cur===end){
+      const path=[];
+      let c=end;
+      while(visited[c]!==null){
+        const prev=visited[c];
+        path.unshift({from:prev.from, to:prev.to, label:prev.label});
+        c=prev.from;
+      }
+      return path;
+    }
+    (adj[cur]||[]).forEach(nb=>{
+      if(!(nb.to in visited)){
+        visited[nb.to]={from:cur, to:nb.to, label:nb.label};
+        queue.push(nb.to);
+      }
+    });
+  }
+  return null;
+}
+
+// Get random distinct node IDs reachable from a path
+function randomPair(){
+  const ids = NODES.map(n=>n.id);
+  let attempts=0;
+  while(attempts<200){
+    attempts++;
+    const ai=Math.floor(Math.random()*ids.length);
+    const bi=Math.floor(Math.random()*ids.length);
+    if(ai===bi) continue;
+    const a=ids[ai], b=ids[bi];
+    const path=bfsPath(a,b);
+    if(path&&path.length>=1&&path.length<=5) return {a,b,path};
+  }
+  return null;
+}
+
+// Wrong reaction labels pool
+const wrongLabels=[
+  '+H₂/Ni/150-300°C (hydrogenation)',
+  'Hot KMnO₄/H⁺ (oxidative cleavage)',
+  'AlCl₃ / RCl (Friedel-Crafts)',
+  'NaOH/CaO/Δ (soda lime)',
+  'HBr/H₂O₂ (anti-Markovnikov)',
+  'H₂SO₄/180°C (dehydration)',
+  '+X₂/CCl₄ (halogenation)',
+  'Yeast/zymase (fermentation)',
+  'CuCrO₄/400°C (reduction)',
+  'HgSO₄/H₂SO₄ (hydration-tautomerism)',
+  '+3H₂/Pt (addition to aromatic)',
+  'Cl₂/FeCl₃ (electrophilic sub.)',
+  'HNO₃/H₂SO₄/50°C (nitration)',
+  'Ag⁺/NH₃ (Tollens test)',
+  '1500°C rapid cool (quenching)',
+  'Cr₂O₃/500°C (dehydrogenation)',
+  'CaO/2000°C (carbide formation)',
+  'Zn/H⁺ (ozonolysis reductive)',
+  'Cold dil. KMnO₄/OH⁻ (Baeyer\'s)',
+  'Al₂O₃/Δ (dehydration)',
+  'NaOH/300°C pressure (hydrolysis)',
+  'Fuming H₂SO₄ (sulfonation)',
+  'KMnO₄/mild (oxidation)',
+  '+NH₃ (ammonolysis)',
+  'Lindlar catalyst H₂ (partial hydrogenation)',
+  '+Na metal → alkoxide + H₂',
+  'Alc. KOH (elimination/Zaitsev)',
+  'Aq. KOH (substitution)',
+  'RCOCl/AlCl₃ (FC acylation)',
+  'Pt/Δ (reforming)',
+  '+3Cl₂/UV (addition, benzene)',
+  'NaOH/Δ (saponification)',
+  '+2H₂ CuCrO₄ 400°C (acid → 1°alc)',
+  'invertase/zymase (enzymatic)',
+  'UV/hν (photochemical)',
+  'Mild KMnO₄/OH⁻ (1°alc → aldehyde)',
+];
+
+function shuffled(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+let qState=null;
+let score={ok:0,no:0,tot:0};
+let questions=[];
+let stepIdx=0;
+let currentPath=null;
+let currentPair=null;
+let answered=false;
+
+function nextQuestion(){
+  answered=false;
+  document.getElementById('btn-next').style.display='none';
+  const pair=randomPair();
+  if(!pair){ renderError(); return; }
+  currentPair=pair;
+  currentPath=pair.path;
+  stepIdx=0;
+  renderStep();
+}
+
+function renderStep(){
+  const step=currentPath[stepIdx];
+  const isLast=stepIdx===currentPath.length-1;
+  const fromNode=nodeMap[step.from];
+  const toNode=nodeMap[step.to];
+  const totalSteps=currentPath.length;
+
+  // Build 4 options: 1 correct + 3 wrong
+  const correctLabel=step.label;
+  const wrongs=shuffled(wrongLabels.filter(l=>l!==correctLabel)).slice(0,3);
+  const opts=shuffled([correctLabel,...wrongs]);
+  const correctIdx=opts.indexOf(correctLabel);
+
+  const stepHTML=totalSteps>1?`<div class="step-tag">STEP ${stepIdx+1} of ${totalSteps} — Multi-step pathway</div>`:'<div class="step-tag">SINGLE-STEP PATHWAY</div>';
+  const titleHTML=`<div class="q-title">How do you convert <span style="color:#7dd3fc">${fromNode.formula}</span> → <span style="color:#4ade80">${toNode.formula}</span>?</div>`;
+  const molsHTML=`
+    <div class="mols">
+      <div class="mol-card"><span class="mf">${fromNode.formula}</span><span class="mn">${fromNode.label.replace(/\n/,' ')}</span></div>
+      <div class="arrow-big">→</div>
+      <div class="mol-card" style="border-color:#4ade80"><span class="mf">${toNode.formula}</span><span class="mn">${toNode.label.replace(/\n/,' ')}</span></div>
+    </div>`;
+
+  // If multi-step, show overall journey
+  let journeyHTML='';
+  if(totalSteps>1){
+    const startNode=nodeMap[currentPair.a];
+    const endNode=nodeMap[currentPair.b];
+    journeyHTML=`<div style="text-align:center;color:#94a3b8;font-size:11px;margin-bottom:8px">
+      Full goal: <span style="color:#7dd3fc">${startNode.formula}</span> 
+      <span style="color:#e94560">——→</span> 
+      <span style="color:#4ade80">${endNode.formula}</span>
+      &nbsp;(${totalSteps} steps)
+    </div>`;
+  }
+
+  const optsHTML=`<div class="opts">${opts.map((o,i)=>`
+    <button class="opt" id="opt-${i}" onclick="selectOpt(${i},${correctIdx},'${encodeURIComponent(correctLabel)}')">${String.fromCharCode(65+i)}. ${o}</button>
+  `).join('')}</div>`;
+
+  document.getElementById('qbox-area').innerHTML=`
+    <div class="qbox">
+      ${stepHTML}${journeyHTML}${titleHTML}${molsHTML}${optsHTML}
+    </div>
+    <div id="fb"></div>
+  `;
+  updateScore();
+}
+
+function selectOpt(idx, correctIdx, encodedCorrect){
+  if(answered) return;
+  answered=true;
+  const correct=idx===correctIdx;
+  if(correct){ score.ok++; } else { score.no++; }
+  score.tot++;
+
+  // Highlight
+  document.querySelectorAll('.opt').forEach((b,i)=>{
+    b.disabled=true;
+    if(i===correctIdx) b.classList.add('correct');
+    else if(i===idx&&!correct) b.classList.add('wrong');
+  });
+
+  const fb=document.getElementById('fb');
+  if(correct){
+    fb.textContent='✅ Correct!';
+    fb.className='fb-ok';
+  } else {
+    fb.textContent=`❌ Wrong. Correct: ${decodeURIComponent(encodedCorrect)}`;
+    fb.className='fb-no';
+  }
+  updateScore();
+
+  // Advance step or finish
+  if(correct && stepIdx<currentPath.length-1){
+    stepIdx++;
+    setTimeout(()=>{ answered=false; renderStep(); },1600);
+  } else {
+    // Show full path review
+    showPathReview();
+    document.getElementById('btn-next').style.display='inline-block';
+  }
+}
+
+function showPathReview(){
+  const steps=currentPath;
+  if(steps.length===0) return;
+  let html=`<div class="path-steps"><h4>Full Pathway</h4>`;
+  let prev=steps[0].from;
+  html+=`<div class="path-step"><div class="ps-badge">${nodeMap[prev]?.formula||prev}</div></div>`;
+  steps.forEach(s=>{
+    html+=`<div class="path-step">
+      <span class="ps-arrow">↓</span>
+      <span class="ps-rxn">${s.label.replace(/\n/,' | ')}</span>
+    </div>
+    <div class="path-step"><div class="ps-badge">${nodeMap[s.to]?.formula||s.to}</div></div>`;
+  });
+  html+='</div>';
+  document.getElementById('qbox-area').innerHTML+=html;
+}
+
+function renderError(){
+  document.getElementById('qbox-area').innerHTML='<div class="qbox"><p style="color:#94a3b8;text-align:center">Could not find a valid question. Click Next.</p></div>';
+  document.getElementById('btn-next').style.display='inline-block';
+}
+
+function updateScore(){
+  document.getElementById('sc-correct').textContent=score.ok;
+  document.getElementById('sc-wrong').textContent=score.no;
+  document.getElementById('sc-total').textContent=score.tot;
+  const pct=score.tot>0?Math.round(score.ok/score.tot*100):0;
+  document.getElementById('pbar').style.width=pct+'%';
+}
+</script>
+</body>
+</html>
