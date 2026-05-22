@@ -48,7 +48,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;overflow:hidden;
 
 /* ── CANVAS ── */
 #canvas{
-  position:absolute;top:0;left:0;width:6200px;height:4600px;
+  position:absolute;top:0;left:0;width:100%;height:100%;
   transform-origin:0 0;
   background:radial-gradient(ellipse at 30% 30%,#0f1b35 0%,#0d1117 70%)
 }
@@ -73,9 +73,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;overflow:hidden;
 }
 .node:hover{border-color:#e94560 !important;box-shadow:0 0 28px rgba(233,69,96,.55) !important;transform:scale(1.04);z-index:20}
 .node.selected{border-color:#fbbf24 !important;box-shadow:0 0 30px rgba(251,191,36,.7) !important}
-.node-formula{font-family:'Courier New',monospace;font-size:13px;font-weight:900;color:#0d1117;margin-bottom:3px;line-height:1.2}
+.node-formula{font-size:14px;font-weight:800;color:#0d1117;margin-bottom:3px;line-height:1.15}
 .node-name{font-size:10.5px;color:rgba(13,17,23,.75);font-weight:700;line-height:1.3}
 .node-extra{font-size:9px;color:rgba(13,17,23,.55);margin-top:2px;font-style:italic;line-height:1.2}
+.chem{
+  font-family:'STIX Two Text','Cambria Math','Times New Roman',serif;
+  font-weight:inherit;letter-spacing:.2px;font-variant-numeric:lining-nums tabular-nums
+}
+.chem sub{
+  font-size:.7em;vertical-align:baseline;position:relative;bottom:-0.2em
+}
 
 /* colour themes */
 .c-alkane{background:linear-gradient(135deg,#bfdbfe,#93c5fd)}
@@ -116,7 +123,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0d1117;overflow:hidden;
 .q-title{text-align:center;color:#e2e8f0;font-size:15px;font-weight:700;margin-bottom:18px;line-height:1.5}
 .mols{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0;flex-wrap:wrap}
 .mol-card{background:#1e3a5f;border:2px solid #e94560;border-radius:12px;padding:14px 22px;text-align:center;min-width:130px}
-.mol-card .mf{font-family:'Courier New',monospace;font-size:17px;font-weight:900;color:white;display:block;margin-bottom:4px}
+.mol-card .mf{font-size:17px;font-weight:800;color:white;display:block;margin-bottom:4px}
 .mol-card .mn{font-size:11px;color:#94a3b8}
 .arrow-big{font-size:32px;color:#e94560;font-weight:900}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
@@ -306,8 +313,6 @@ const NODES = [
   {id:'hcooh',   label:'Formic Acid\n(Methanoic acid)',formula:'HCOOH',  x:3400, y:280,  cls:'c-acid', info:'Simplest carboxylic acid. Most acidic organic acid (HCOOH>CH₃COOH; shorter chain=more acidic). From methanal oxidation. Reacts with Na₂CO₃ and NaHCO₃ → CO₂.'},
   {id:'acetic',  label:'Acetic Acid\n(Ethanoic acid)', formula:'CH₃COOH',x:3400, y:520,  cls:'c-acid', info:'From ethanol strong KMnO₄ or ethanal oxidation. From sodium acetate + soda lime → methane. Stronger than higher acids (shorter chain). Esterification → esters. Acidity: HCOOH > benzoic > CH₃COOH.'},
   {id:'rcooh',   label:'Carboxylic Acid', formula:'RCOOH',               x:3400, y:760,  cls:'c-acid', info:'Highest FG priority (suffix -oic acid). H-bonds → dimers → highest BP (same MM: acid>alcohol>ester>ether). Na₂CO₃/NaHCO₃→CO₂. Esterification with ROH (H₂SO₄/Δ, reversible). Reduction +2H₂/CuCrO₄ → 1° alcohol. Salt + NaOH/CaO → alkane. EWG→↑acidity; EDG→↓acidity.'},
-  {id:'benzoic', label:'Benzoic Acid',    formula:'C₆H₅COOH',           x:2400, y:380,  cls:'c-acid', info:'Aromatic carboxylic acid. From toluene + hot KMnO₄. COOH is meta director (EWG). More acidic than CH₃COOH (aromaticity stabilises conjugate base). Reacts with Na₂CO₃ → CO₂ effervescence.'},
-
   /* ── ESTERS & SALTS ── */
   {id:'ester',   label:'Ester (general)', formula:'RCOOR\'',             x:3700, y:520,  cls:'c-ester', info:'From RCOOH + HOR\' / H₂SO₄/Δ (esterification, reversible). Hydrolysis: H₂SO₄→acid+alcohol; NaOH (saponification)→salt+alcohol; NH₃ (ammonolysis)→amide+alcohol. Low BP (no H-bonds). Fruity smell. Same MF as carboxylic acid.'},
   {id:'naoacet', label:'Sodium Acetate',  formula:'CH₃COONa',            x:3700, y:280,  cls:'c-salt', info:'From acetic acid + NaOH. Soda lime (CaO/Δ) → methane + Na₂CO₃. Lab prep of methane.'},
@@ -415,7 +420,6 @@ const EDGES = [
   {f:'glycerol',t:'tng',     label:'+HNO₃/H₂SO₄\n→ nitroglycerin',color:'red'},
   /* Acid reactions */
   {f:'acetic',  t:'naoacet', label:'+NaOH → sodium acetate',color:'green'},
-  {f:'naoacet', t:'methane', label:'Soda lime CaO/Δ\n→ CH₄ + Na₂CO₃',color:'red'},
   {f:'rcooh',   t:'rcoona',  label:'+NaOH → carboxylate salt',color:'green'},
   {f:'rcooh',   t:'ester',   label:'Esterification:\n+ROH/H₂SO₄/Δ\n(reversible, equilibrium)',color:'purple'},
   {f:'rcooh',   t:'prim_alc',label:'Reduction:\n+2H₂/CuCrO₄/400°C\n→ 1° alcohol',color:'green'},
@@ -437,7 +441,6 @@ const EDGES = [
   {f:'rcooh',   t:'pet',     label:'Condensation polymer:\nterephthalic acid +\n1,2-ethanediol (+H₂O)',color:'purple'},
   {f:'rcooh',   t:'nylon',   label:'Condensation polymer:\nhexanedioic acid +\nhexanediamine (+H₂O)',color:'purple'},
   /* Key conversions */
-  {f:'methane', t:'ethyne',  label:'1500°C Quenching\n2CH₄→C₂H₂+3H₂',color:'red'},
   {f:'propane', t:'propene', label:'Dehydrogenation:\nCr₂O₃/500°C → CH₃CH=CH₂+H₂',color:'default'},
   {f:'ethanal', t:'acetic',  label:'Strong KMnO₄\n→ acetic acid',color:'red'},
   {f:'propanone',t:'ketone', label:'General ketone\nbehaviour',color:'default'},
@@ -449,43 +452,168 @@ const EDGES = [
 const canvas = document.getElementById('canvas');
 const svg    = document.getElementById('arrows-svg');
 
+const SUBSCRIPT_MAP = {
+  '₀':'0','₁':'1','₂':'2','₃':'3','₄':'4','₅':'5','₆':'6','₇':'7','₈':'8','₉':'9','₊':'+','₋':'-','ₙ':'n'
+};
+const SUBSCRIPT_SET = new Set(Object.keys(SUBSCRIPT_MAP));
+const SUBSCRIPT_TAIL = /[0-9a-z+\-]/;
+
+function formatFormulaHTML(formula){
+  if(!formula) return '';
+  let out='';
+  let i=0;
+  let prev='';
+  while(i<formula.length){
+    const ch=formula[i];
+    if(SUBSCRIPT_SET.has(ch)){
+      let buf='';
+      while(i<formula.length && SUBSCRIPT_SET.has(formula[i])){
+        buf+=SUBSCRIPT_MAP[formula[i]];
+        i++;
+      }
+      while(i<formula.length && SUBSCRIPT_TAIL.test(formula[i])){
+        buf+=formula[i];
+        i++;
+      }
+      out+=`<sub>${buf}</sub>`;
+      prev='';
+      continue;
+    }
+    if(/[0-9]/.test(ch) && /[A-Za-z\)\]\}]/.test(prev)){
+      let buf=ch;
+      i++;
+      while(i<formula.length && SUBSCRIPT_TAIL.test(formula[i])){
+        buf+=formula[i];
+        i++;
+      }
+      out+=`<sub>${buf}</sub>`;
+      prev='';
+      continue;
+    }
+    out+=ch;
+    if(ch.trim()!=='') prev=ch;
+    i++;
+  }
+  return out;
+}
+function renderFormula(formula){ return `<span class="chem">${formatFormulaHTML(formula)}</span>`; }
+function formatLabel(label){ return label.replace(/\n/g,'<br>'); }
+
 // Build node index
 const nodeMap = {};
+const nodeDimsMap = {};
 NODES.forEach(n=>{ nodeMap[n.id]=n; });
 
 // Calculate node dimensions (approx)
 function nodeDims(n){
+  if(nodeDimsMap[n.id]) return nodeDimsMap[n.id];
   const lines = (n.formula+'\n'+n.label).split('\n');
   const maxLen = Math.max(...lines.map(l=>l.length));
-  const w = Math.max(130, Math.min(195, maxLen*7.5+26));
-  const h = 65 + (n.label.split('\n').length-1)*14;
-  return {w,h};
+  const w = Math.max(130, Math.min(205, maxLen*7.4+28));
+  const h = 66 + (n.label.split('\n').length-1)*14;
+  nodeDimsMap[n.id]={w,h};
+  return nodeDimsMap[n.id];
 }
 
+function computeBounds(){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  NODES.forEach(n=>{
+    const d=nodeDims(n);
+    minX=Math.min(minX,n.x);
+    minY=Math.min(minY,n.y);
+    maxX=Math.max(maxX,n.x+d.w);
+    maxY=Math.max(maxY,n.y+d.h);
+  });
+  return {minX,minY,maxX,maxY,width:maxX-minX,height:maxY-minY};
+}
+
+const CANVAS_PADDING = 120;
+const bounds = computeBounds();
+const offsetX = CANVAS_PADDING - bounds.minX;
+const offsetY = CANVAS_PADDING - bounds.minY;
+const canvasWidth = bounds.width + CANVAS_PADDING*2;
+const canvasHeight = bounds.height + CANVAS_PADDING*2;
+canvas.style.width = canvasWidth+'px';
+canvas.style.height = canvasHeight+'px';
+
 // Render nodes
+const nodeRects = {};
 NODES.forEach(n=>{
   const el = document.createElement('div');
   el.className = `node ${n.cls}`;
   const d = nodeDims(n);
-  el.style.left = n.x+'px';
-  el.style.top  = n.y+'px';
+  n._x = n.x + offsetX;
+  n._y = n.y + offsetY;
+  el.style.left = n._x+'px';
+  el.style.top  = n._y+'px';
   el.style.width = d.w+'px';
-  el.innerHTML = `<div class="node-formula">${n.formula}</div><div class="node-name">${n.label.replace(/\n/g,'<br>')}</div>`;
+  el.innerHTML = `<div class="node-formula">${renderFormula(n.formula)}</div><div class="node-name">${formatLabel(n.label)}</div>`;
   el.dataset.id = n.id;
   el.addEventListener('mouseenter', e=> showTip(e, n));
   el.addEventListener('mouseleave', hideTip);
   canvas.appendChild(el);
   n._el = el;
+  nodeRects[n.id]={x:n._x,y:n._y,w:d.w,h:d.h};
 });
 
 // Draw edge with bezier
+const EDGE_SPACING = 28;
+const EDGE_SAMPLE_COUNT = 18;
+const EDGE_NODE_PADDING = 8;
+
+function parallelOffset(idx){
+  if(idx===0) return 0;
+  const magnitude = Math.ceil(idx/2)*EDGE_SPACING;
+  return idx%2===1 ? magnitude : -magnitude;
+}
+function curvePoint(t, sx, sy, cx, cy, ex, ey){
+  const mt=1-t;
+  const x=mt*mt*sx + 2*mt*t*cx + t*t*ex;
+  const y=mt*mt*sy + 2*mt*t*cy + t*t*ey;
+  return {x,y};
+}
+function curveHitsNode(sx, sy, cx, cy, ex, ey, ignore){
+  const ignoreSet=new Set(ignore);
+  for(const [id, r] of Object.entries(nodeRects)){
+    if(ignoreSet.has(id)) continue;
+    const minX=r.x-EDGE_NODE_PADDING;
+    const minY=r.y-EDGE_NODE_PADDING;
+    const maxX=r.x+r.w+EDGE_NODE_PADDING;
+    const maxY=r.y+r.h+EDGE_NODE_PADDING;
+    for(let i=0;i<=EDGE_SAMPLE_COUNT;i++){
+      const t=i/EDGE_SAMPLE_COUNT;
+      const p=curvePoint(t,sx,sy,cx,cy,ex,ey);
+      if(p.x>=minX && p.x<=maxX && p.y>=minY && p.y<=maxY) return true;
+    }
+  }
+  return false;
+}
+function resolveControlPoint(sx, sy, ex, ey, baseOffset, ignore){
+  const dx=ex-sx, dy=ey-sy;
+  const len=Math.sqrt(dx*dx+dy*dy)||1;
+  const ux=dx/len, uy=dy/len;
+  const candidates=[baseOffset,0,EDGE_SPACING,-EDGE_SPACING,EDGE_SPACING*2,-EDGE_SPACING*2,EDGE_SPACING*3,-EDGE_SPACING*3];
+  let chosen=baseOffset;
+  for(const off of candidates){
+    const cx=(sx+ex)/2 - uy*off;
+    const cy=(sy+ey)/2 + ux*off;
+    if(!curveHitsNode(sx,sy,cx,cy,ex,ey,ignore)){
+      chosen=off;
+      return {cx,cy,ux,uy,offset:chosen};
+    }
+  }
+  const cx=(sx+ex)/2 - uy*chosen;
+  const cy=(sy+ey)/2 + ux*chosen;
+  return {cx,cy,ux,uy,offset:chosen};
+}
+
 function drawEdge(edge){
   const from = nodeMap[edge.f];
   const to   = nodeMap[edge.t];
   if(!from||!to) return;
   const fd = nodeDims(from), td = nodeDims(to);
-  const fx = from.x + fd.w/2, fy = from.y + fd.h/2;
-  const tx = to.x   + td.w/2, ty = to.y   + td.h/2;
+  const fx = from._x + fd.w/2, fy = from._y + fd.h/2;
+  const tx = to._x   + td.w/2, ty = to._y   + td.h/2;
 
   // Compute edge-crossing points
   const dx = tx-fx, dy = ty-fy;
@@ -495,8 +623,9 @@ function drawEdge(edge){
   const ex = tx-ux*(td.w/2+10), ey = ty-uy*(td.h/2+10);
 
   // Slight curve offset for parallel edges
-  const off = (edge._idx||0)*28;
-  const cx = (sx+ex)/2 - uy*off, cy = (sy+ey)/2 + ux*off;
+  const off = parallelOffset(edge._idx||0);
+  const resolved = resolveControlPoint(sx, sy, ex, ey, off, [edge.f, edge.t]);
+  const cx = resolved.cx, cy = resolved.cy;
 
   const colors={red:'#e94560',green:'#4ade80',yellow:'#fbbf24',purple:'#c084fc',default:'#64748b'};
   const c = colors[edge.color]||colors.default;
@@ -559,15 +688,45 @@ EDGES.forEach(drawEdge);
 /* ═══════════════════════════════════════════════════════
    PAN & ZOOM
 ═══════════════════════════════════════════════════════ */
-let scale=0.45, tx=80, ty=60;
+let scale=1, tx=0, ty=0;
 let dragging=false, lx=0, ly=0;
 const vp = document.getElementById('viewport');
+const PAN_MARGIN = 40;
+
+function clampTransform(){
+  const cw = canvasWidth * scale;
+  const ch = canvasHeight * scale;
+  if(cw <= vp.clientWidth){
+    tx = (vp.clientWidth - cw)/2;
+  } else {
+    const minX = vp.clientWidth - cw - PAN_MARGIN;
+    const maxX = PAN_MARGIN;
+    tx = Math.min(maxX, Math.max(minX, tx));
+  }
+  if(ch <= vp.clientHeight){
+    ty = (vp.clientHeight - ch)/2;
+  } else {
+    const minY = vp.clientHeight - ch - PAN_MARGIN;
+    const maxY = PAN_MARGIN;
+    ty = Math.min(maxY, Math.max(minY, ty));
+  }
+}
 
 function applyTransform(){
+  clampTransform();
   canvas.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
   document.getElementById('zlvl').textContent=Math.round(scale*100)+'%';
 }
-applyTransform();
+
+function fitToView(){
+  const scaleX = vp.clientWidth / canvasWidth;
+  const scaleY = vp.clientHeight / canvasHeight;
+  scale = Math.min(1, Math.max(0.1, Math.min(scaleX, scaleY) * 0.95));
+  tx = (vp.clientWidth - canvasWidth*scale)/2;
+  ty = (vp.clientHeight - canvasHeight*scale)/2;
+  applyTransform();
+}
+fitToView();
 
 vp.addEventListener('mousedown',e=>{
   if(e.target.classList.contains('node')||e.target.closest('.node'))return;
@@ -600,18 +759,27 @@ function zoom(f){
   applyTransform();
 }
 
-function resetView(){ scale=0.45; tx=80; ty=60; applyTransform(); }
+function resetView(){ fitToView(); }
+window.addEventListener('resize', fitToView);
 
 /* ═══════════════════════════════════════════════════════
    TOOLTIP
 ═══════════════════════════════════════════════════════ */
 const tip = document.getElementById('tip');
 function showTip(e, n){
-  tip.innerHTML=`<h4>${n.formula} — ${n.label.replace(/\n/,' / ')}</h4><p>${n.info||''}</p>`;
+  tip.innerHTML=`<h4>${renderFormula(n.formula)} — ${n.label.replace(/\n/,' / ')}</h4><p>${n.info||''}</p>`;
   tip.style.display='block';
   moveTip(e);
 }
-function moveTip(e){ tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px'; }
+function moveTip(e){
+  const padding=12;
+  let x=e.clientX+14;
+  let y=e.clientY-10;
+  const maxX=window.innerWidth-tip.offsetWidth-padding;
+  const maxY=window.innerHeight-tip.offsetHeight-padding;
+  tip.style.left=Math.min(x,maxX)+'px';
+  tip.style.top=Math.max(padding,Math.min(y,maxY))+'px';
+}
 function hideTip(){ tip.style.display='none'; }
 window.addEventListener('mousemove', e=>{ if(tip.style.display!='none') moveTip(e); });
 
@@ -759,12 +927,12 @@ function renderStep(){
   const correctIdx=opts.indexOf(correctLabel);
 
   const stepHTML=totalSteps>1?`<div class="step-tag">STEP ${stepIdx+1} of ${totalSteps} — Multi-step pathway</div>`:'<div class="step-tag">SINGLE-STEP PATHWAY</div>';
-  const titleHTML=`<div class="q-title">How do you convert <span style="color:#7dd3fc">${fromNode.formula}</span> → <span style="color:#4ade80">${toNode.formula}</span>?</div>`;
+  const titleHTML=`<div class="q-title">How do you convert <span style="color:#7dd3fc">${renderFormula(fromNode.formula)}</span> → <span style="color:#4ade80">${renderFormula(toNode.formula)}</span>?</div>`;
   const molsHTML=`
     <div class="mols">
-      <div class="mol-card"><span class="mf">${fromNode.formula}</span><span class="mn">${fromNode.label.replace(/\n/,' ')}</span></div>
+      <div class="mol-card"><span class="mf">${renderFormula(fromNode.formula)}</span><span class="mn">${fromNode.label.replace(/\n/,' ')}</span></div>
       <div class="arrow-big">→</div>
-      <div class="mol-card" style="border-color:#4ade80"><span class="mf">${toNode.formula}</span><span class="mn">${toNode.label.replace(/\n/,' ')}</span></div>
+      <div class="mol-card" style="border-color:#4ade80"><span class="mf">${renderFormula(toNode.formula)}</span><span class="mn">${toNode.label.replace(/\n/,' ')}</span></div>
     </div>`;
 
   // If multi-step, show overall journey
@@ -773,9 +941,9 @@ function renderStep(){
     const startNode=nodeMap[currentPair.a];
     const endNode=nodeMap[currentPair.b];
     journeyHTML=`<div style="text-align:center;color:#94a3b8;font-size:11px;margin-bottom:8px">
-      Full goal: <span style="color:#7dd3fc">${startNode.formula}</span> 
+      Full goal: <span style="color:#7dd3fc">${renderFormula(startNode.formula)}</span> 
       <span style="color:#e94560">——→</span> 
-      <span style="color:#4ade80">${endNode.formula}</span>
+      <span style="color:#4ade80">${renderFormula(endNode.formula)}</span>
       &nbsp;(${totalSteps} steps)
     </div>`;
   }
@@ -833,13 +1001,13 @@ function showPathReview(){
   if(steps.length===0) return;
   let html=`<div class="path-steps"><h4>Full Pathway</h4>`;
   let prev=steps[0].from;
-  html+=`<div class="path-step"><div class="ps-badge">${nodeMap[prev]?.formula||prev}</div></div>`;
+  html+=`<div class="path-step"><div class="ps-badge">${renderFormula(nodeMap[prev]?.formula||prev)}</div></div>`;
   steps.forEach(s=>{
     html+=`<div class="path-step">
       <span class="ps-arrow">↓</span>
       <span class="ps-rxn">${s.label.replace(/\n/,' | ')}</span>
     </div>
-    <div class="path-step"><div class="ps-badge">${nodeMap[s.to]?.formula||s.to}</div></div>`;
+    <div class="path-step"><div class="ps-badge">${renderFormula(nodeMap[s.to]?.formula||s.to)}</div></div>`;
   });
   html+='</div>';
   document.getElementById('qbox-area').innerHTML+=html;
